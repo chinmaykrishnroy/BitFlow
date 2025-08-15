@@ -1,74 +1,56 @@
 # backend/sockets/file_events.py
-import threading
-from flask_socketio import emit
+import os
+from flask import request
 from utils import file_utils
 
-# Logical root dir name shown to user
 LOGICAL_ROOT = "/"
 
-
 def register_file_events(socketio):
-    """
-    Registers all Socket.IO events related to file browsing.
-    """
-
     @socketio.on("list_dir")
     def handle_list_dir(data):
-        """
-        Event to list contents of a given logical path.
-        Example client payload:
-            { "path": "/movies" }
-        """
         logical_path = data.get("path", LOGICAL_ROOT)
+        sid = request.sid
 
-        # Immediately tell client we're working
-        emit("list_dir_status", {"status": "loading", "path": logical_path})
+        # Immediately notify client we're loading
+        socketio.emit("list_dir_status", {"status": "loading", "path": logical_path}, to=sid)
 
-        def worker():
+        def background_task():
             try:
-                # Map logical path -> real path
-                real_path = file_utils.logical_to_real_path(logical_path)
+                # Run the synchronous function in background
+                result = file_utils.list_directory_with_progress(
+                    logical_path,
+                    progress_cb=lambda evt: emit_progress(evt, sid)
+                )
 
-                # Get listing and metadata
-                result = file_utils.list_directory_sync(logical_path)
+                # Emit final result to client
+                socketio.emit("list_dir_result", {"status": "success", "data": result}, to=sid)
 
-                # Wrap in logical response structure
-                response = {
-                    "path": logical_path,
-                    "type": result["type"],
-                    "details": result["details"],
-                    "children": result.get("children", [])
-                }
-
-                emit("list_dir_result", {
-                    "status": "success",
-                    "data": response
-                })
-
-            except FileNotFoundError:
-                emit("list_dir_result", {
-                    "status": "error",
-                    "code": 404,
-                    "message": f"Path not found: {logical_path}"
-                })
-            except NotADirectoryError:
-                emit("list_dir_result", {
-                    "status": "error",
-                    "code": 400,
-                    "message": f"Not a directory: {logical_path}"
-                })
-            except PermissionError:
-                emit("list_dir_result", {
-                    "status": "error",
-                    "code": 403,
-                    "message": f"Permission denied: {logical_path}"
-                })
             except Exception as e:
-                emit("list_dir_result", {
-                    "status": "error",
-                    "code": 500,
-                    "message": str(e)
-                })
+                msg = str(e)
+                code = 500
+                if "not exist" in msg.lower():
+                    code = 404
+                elif "not a directory" in msg.lower():
+                    code = 400
+                elif "permission denied" in msg.lower():
+                    code = 403
+                elif "outside MEDIA_ROOT" in msg:
+                    code = 400
 
-        # Run in background thread to avoid blocking the socket
-        threading.Thread(target=worker, daemon=True).start()
+                socketio.emit("list_dir_result", {"status": "error", "code": code, "message": msg}, to=sid)
+
+        def emit_progress(evt, sid):
+            if evt.get("event") == "progress":
+                socketio.emit("list_dir_status", {
+                    "status": "progress",
+                    "path": evt.get("path"),
+                    "scanned": evt.get("scanned"),
+                    "total": evt.get("total"),
+                    "percent": evt.get("percent"),
+                    "batch": evt.get("batch")
+                }, to=sid)
+            elif evt.get("event") == "done":
+                socketio.emit("list_dir_status", {"status": "done", "path": evt.get("path")}, to=sid)
+
+        # Start background task
+        socketio.start_background_task(background_task)

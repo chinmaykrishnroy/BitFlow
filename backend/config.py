@@ -1,3 +1,4 @@
+# backend/config.py
 import os
 
 # === FILE & MEDIA SETTINGS ===

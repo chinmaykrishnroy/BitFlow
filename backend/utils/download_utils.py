@@ -1,48 +1,22 @@
-# backend/utils/stream_utils.py
-import mimetypes
+# backend/utils/download_utils.py
 from pathlib import Path
 from flask import Response, request, abort
+import mimetypes
 
-# ---------------------------
-# Config
-# ---------------------------
-CHUNK_SIZE = 1 * 1024 * 1024  # 1 MB per chunk
+CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
 
-# ---------------------------
-# Supported media types
-# ---------------------------
-VIDEO_TYPES = {"video/mp4", "video/webm", "video/ogg"}
-AUDIO_TYPES = {"audio/mpeg", "audio/ogg", "audio/wav"}
-IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
-
-# ---------------------------
-# File type helpers
-# ---------------------------
 def get_mime_type(path: Path) -> str:
     mime_type, _ = mimetypes.guess_type(str(path))
     return mime_type or "application/octet-stream"
 
-def is_playable(path: Path) -> bool:
-    """Check if file is audio/video playable."""
-    mime = get_mime_type(path)
-    return mime in VIDEO_TYPES or mime in AUDIO_TYPES
-
-def is_image(path: Path) -> bool:
-    """Check if file is an image."""
-    mime = get_mime_type(path)
-    return mime in IMAGE_TYPES
-
-# ---------------------------
-# Streaming helpers
-# ---------------------------
 def file_stream_generator(file_path: Path, chunk_size: int = CHUNK_SIZE):
-    """Yield file content in chunks."""
+    """Yield file content in chunks for download."""
     with open(file_path, "rb") as f:
         while chunk := f.read(chunk_size):
             yield chunk
 
 def parse_range_header(range_header: str, file_size: int):
-    """Safely parse HTTP Range header, returns (start, end) or (None, None) if invalid."""
+    """Parse HTTP Range header, return (start, end) or (None, None) if invalid."""
     try:
         bytes_unit, bytes_range = range_header.strip().split("=")
         if bytes_unit != "bytes":
@@ -56,10 +30,10 @@ def parse_range_header(range_header: str, file_size: int):
     except Exception:
         return None, None
 
-def stream_file_response(file_path: Path):
+def download_file_response(file_path: Path):
     """
-    Return a Flask Response streaming a file in chunks.
-    Supports HTTP Range headers for seeking.
+    Return a Flask Response for downloading a file.
+    Supports HTTP Range headers for partial downloads.
     """
     mime_type = get_mime_type(file_path)
     file_size = file_path.stat().st_size
@@ -88,14 +62,14 @@ def stream_file_response(file_path: Path):
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Accept-Ranges": "bytes",
             "Content-Length": str(length),
-            "Content-Disposition": f'inline; filename="{file_path.name}"'
+            "Content-Disposition": f'attachment; filename="{file_path.name}"'
         })
         return resp
 
-    # Full file response
+    # Full download
     resp = Response(file_stream_generator(file_path), mimetype=mime_type)
     resp.headers.update({
         "Content-Length": str(file_size),
-        "Content-Disposition": f'inline; filename="{file_path.name}"'
+        "Content-Disposition": f'attachment; filename="{file_path.name}"'
     })
     return resp
