@@ -6,31 +6,31 @@ from flask import Response, request, abort
 # ---------------------------
 # Config
 # ---------------------------
-CHUNK_SIZE = 1 * 1024 * 1024  # 1 MB per chunk
-
-# ---------------------------
-# Supported media types
-# ---------------------------
-VIDEO_TYPES = {"video/mp4", "video/webm", "video/ogg"}
-AUDIO_TYPES = {"audio/mpeg", "audio/ogg", "audio/wav"}
-IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+CHUNK_SIZE = 8 * 1024 * 1024  # 1 MB per chunk
 
 # ---------------------------
 # File type helpers
 # ---------------------------
 def get_mime_type(path: Path) -> str:
+    """Return the file's MIME type, or a generic binary type if unknown."""
     mime_type, _ = mimetypes.guess_type(str(path))
     return mime_type or "application/octet-stream"
 
 def is_playable(path: Path) -> bool:
-    """Check if file is audio/video playable."""
+    """
+    Check if file is audio or video (playable).
+    Works for any MIME type starting with 'audio/' or 'video/'.
+    """
     mime = get_mime_type(path)
-    return mime in VIDEO_TYPES or mime in AUDIO_TYPES
+    return mime.startswith("audio/") or mime.startswith("video/")
 
 def is_image(path: Path) -> bool:
-    """Check if file is an image."""
+    """
+    Check if file is an image.
+    Works for any MIME type starting with 'image/'.
+    """
     mime = get_mime_type(path)
-    return mime in IMAGE_TYPES
+    return mime.startswith("image/")
 
 # ---------------------------
 # Streaming helpers
