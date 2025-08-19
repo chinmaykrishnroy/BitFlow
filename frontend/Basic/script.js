@@ -1,13 +1,14 @@
 const socket = io('http://localhost:8888');
-const tableBody = document.querySelector('#fileTable tbody');
+const fileListDiv = document.getElementById('fileList');
 const loadingDiv = document.getElementById('loading');
 const currentPathSpan = document.getElementById('currentPath');
 const backBtn = document.getElementById('backBtn');
 const forwardBtn = document.getElementById('forwardBtn');
+const searchInput = document.getElementById('searchInput');
 
 let currentPath = '/';
-let history = [];
-let forwardHistory = [];
+let backStack = [];
+let forwardStack = [];
 
 const mediaExtensions = {
   image: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'],
@@ -28,27 +29,49 @@ function formatDate(dtStr) {
          ' ' + dt.toLocaleDateString();
 }
 
-function requestPath(path) {
+function updateNavButtons() {
+  backBtn.disabled = backStack.length <= 0;
+  forwardBtn.disabled = forwardStack.length <= 0;
+}
+
+function requestPath(path, pushHistory=true) {
   currentPath = path;
   currentPathSpan.textContent = path;
-  tableBody.innerHTML = '';
+  fileListDiv.innerHTML = '';
   loadingDiv.textContent = 'Loading...';
   socket.emit('list_dir', { path });
+
+  if(pushHistory){
+    if(backStack.length === 0 || backStack[backStack.length-1] !== path) backStack.push(path);
+    forwardStack = [];
+    updateNavButtons();
+  }
 }
 
 backBtn.onclick = () => {
-  if(history.length > 1){
-    forwardHistory.push(history.pop());
-    requestPath(history[history.length-1]);
+  if(backStack.length > 1){
+    forwardStack.push(backStack.pop());
+    const prevPath = backStack[backStack.length-1];
+    requestPath(prevPath, false);
+    updateNavButtons();
   }
 };
 
 forwardBtn.onclick = () => {
-  if(forwardHistory.length){
-    const path = forwardHistory.pop();
-    requestPath(path);
-    history.push(path);
+  if(forwardStack.length > 0){
+    const nextPath = forwardStack.pop();
+    requestPath(nextPath, false);
+    backStack.push(nextPath);
+    updateNavButtons();
   }
+};
+
+searchInput.oninput = () => {
+  const search = searchInput.value.toLowerCase();
+  document.querySelectorAll('.fileItem, .folderItem').forEach(el => {
+    const name = el.dataset.name.toLowerCase();
+    el.style.display = name.includes(search) ? 'flex' : 'none';
+  });
 };
 
 socket.on('list_dir_status', (data) => {
@@ -58,53 +81,56 @@ socket.on('list_dir_status', (data) => {
 socket.on('list_dir_result', (res) => {
   loadingDiv.textContent = '';
   const data = res.data;
-
-  history.push(currentPath);
-  forwardHistory = [];
-
   if(!data.children || !data.children.length){
-    tableBody.innerHTML = '<tr><td colspan="4">No files or folders</td></tr>';
+    fileListDiv.innerHTML = '<div>No files or folders</div>';
     return;
   }
 
-  // sort by modified descending by default
+  // sort by modified descending
   data.children.sort((a,b) => new Date(b.details.modified) - new Date(a.details.modified));
 
   data.children.forEach(item => {
-    const tr = document.createElement('tr');
+    const itemDiv = document.createElement('div');
+    itemDiv.className = item.type === 'directory' ? 'folderItem' : 'fileItem';
+    itemDiv.dataset.name = item.details.name;
 
-    const nameTd = document.createElement('td');
-    nameTd.textContent = item.details.name;
-    nameTd.classList.add(item.type === 'directory' ? 'folder' : 'file');
-    nameTd.onclick = () => {
-      if(item.type === 'directory') requestPath(item.path);
-    };
-    tr.appendChild(nameTd);
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'fileName';
+    nameDiv.textContent = item.details.name;
+    itemDiv.appendChild(nameDiv);
 
-    const typeTd = document.createElement('td');
-    typeTd.textContent = item.type === 'directory' ? '' : (item.details.extension || '');
-    tr.appendChild(typeTd);
+    if(item.type !== 'directory'){
+      const typeDiv = document.createElement('div');
+      typeDiv.className = 'fileType';
+      typeDiv.textContent = item.details.extension || '';
+      itemDiv.appendChild(typeDiv);
+    }
 
-    const modifiedTd = document.createElement('td');
-    modifiedTd.textContent = formatDate(item.details.modified);
-    tr.appendChild(modifiedTd);
+    const modifiedDiv = document.createElement('div');
+    modifiedDiv.className = 'fileModified';
+    modifiedDiv.textContent = formatDate(item.details.modified);
+    itemDiv.appendChild(modifiedDiv);
 
-    const actionsTd = document.createElement('td');
     if(item.type === 'file'){
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'fileActions';
+
+      // download
       const downloadBtn = document.createElement('button');
       downloadBtn.textContent = 'Download';
       downloadBtn.onclick = e => {
         e.stopPropagation();
         window.open(`http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`, '_blank');
       };
-      actionsTd.appendChild(downloadBtn);
+      actionsDiv.appendChild(downloadBtn);
 
+      // stream
       if(isStreamable(item.details.extension)){
         const streamBtn = document.createElement('button');
         streamBtn.textContent = 'Stream';
         streamBtn.onclick = e => {
           e.stopPropagation();
-          const url = 'http://localhost:8888/download/file?path=' + encodeURIComponent(item.path);
+          const url = `http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`;
           const ext = item.details.extension.toLowerCase();
 
           if(mediaExtensions.image.includes(ext)){
@@ -152,12 +178,20 @@ socket.on('list_dir_result', (res) => {
             videoWindow.document.body.appendChild(script);
           }
         };
-        actionsTd.appendChild(streamBtn);
+        actionsDiv.appendChild(streamBtn);
       }
+
+      itemDiv.appendChild(actionsDiv);
     }
-    tr.appendChild(actionsTd);
-    tableBody.appendChild(tr);
+
+    itemDiv.onclick = () => {
+      if(item.type === 'directory') requestPath(item.path);
+    };
+
+    fileListDiv.appendChild(itemDiv);
   });
+
+  updateNavButtons();
 });
 
 requestPath('/');

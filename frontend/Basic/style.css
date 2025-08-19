@@ -1,10 +1,41 @@
-body { font-family: Arial, sans-serif; margin: 20px; }
-.toolbar { margin-bottom: 10px; }
+body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
+.toolbar { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+#searchInput { flex: 1; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+
 #loading { margin-bottom: 10px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-th, td { border: 1px solid #ccc; padding: 8px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-th { background: #f0f0f0; cursor: pointer; }
-tr:hover { background: #f9f9f9; }
-.folder::before { content: "📁 "; }
-.file::before { content: "📄 "; }
-button { margin-left: 5px; }
+
+#fileList { display: flex; flex-wrap: wrap; gap: 15px; }
+
+.fileItem, .folderItem {
+  background: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  width: 150px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fileItem:hover, .folderItem:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+}
+
+.folderItem::before { content: "📁"; font-size: 24px; margin-bottom: 10px; }
+.fileItem::before { content: "📄"; font-size: 24px; margin-bottom: 10px; }
+
+.fileName { font-weight: bold; margin-bottom: 5px; word-break: break-word; }
+.fileType, .fileModified { font-size: 12px; color: #666; }
+.fileActions { margin-top: auto; display: flex; gap: 5px; }
+
+.headingRow {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+  font-weight: bold;
+  padding: 5px 10px;
+}
+
+.headingRow div { flex: 1; }
