@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Explorer</title>
+<link href="https://vjs.zencdn.net/8.13.0/video-js.css" rel="stylesheet" />
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  h1 { margin-bottom: 10px; }
+  #loading { margin-bottom: 10px; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #f0f0f0; }
+  tr:hover { background: #f9f9f9; cursor: pointer; }
+  .folder { font-weight: bold; }
+  button { margin-left: 5px; }
+</style>
+</head>
+<body>
+
+<h1>File Explorer</h1>
+<div id="loading"></div>
+<table id="fileTable">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Size</th>
+      <th>Modified</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const socket = io('http://localhost:8888');
+const tableBody = document.querySelector('#fileTable tbody');
+const loadingDiv = document.getElementById('loading');
+
+let currentPath = '/';
+
+const mediaExtensions = {
+  image: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'],
+  audio: ['.mp3', '.wav', '.ogg', '.m4a'],
+  video: ['.mp4', '.webm', '.ogv', '.mov', '.mkv']
+};
+
+function isStreamable(ext) {
+  ext = ext?.toLowerCase() || '';
+  return mediaExtensions.image.includes(ext) ||
+         mediaExtensions.audio.includes(ext) ||
+         mediaExtensions.video.includes(ext);
+}
+
+function requestPath(path) {
+  currentPath = path;
+  tableBody.innerHTML = '';
+  loadingDiv.textContent = 'Loading...';
+  socket.emit('list_dir', { path });
+}
+
+function formatSize(size) {
+  if (size === undefined) return '-';
+  if (size < 1024) return size + ' B';
+  if (size < 1024 * 1024) return (size/1024).toFixed(1) + ' KB';
+  return (size/(1024*1024)).toFixed(1) + ' MB';
+}
+
+socket.on('list_dir_status', (data) => {
+  if (data.status === 'loading') loadingDiv.textContent = 'Loading ' + data.path + '...';
+});
+
+socket.on('list_dir_result', (res) => {
+  loadingDiv.textContent = '';
+  tableBody.innerHTML = '';
+
+  const data = res.data;
+  if (!data.children || !data.children.length) {
+    tableBody.innerHTML = '<tr><td colspan="5">No files or folders</td></tr>';
+    return;
+  }
+
+  data.children.forEach(item => {
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = item.details.name;
+    if (item.type === 'directory') nameTd.classList.add('folder');
+    nameTd.onclick = () => {
+      if (item.type === 'directory') requestPath(item.path);
+    };
+    tr.appendChild(nameTd);
+
+    const typeTd = document.createElement('td');
+    typeTd.textContent = item.type;
+    tr.appendChild(typeTd);
+
+    const sizeTd = document.createElement('td');
+    sizeTd.textContent = formatSize(item.details.size);
+    tr.appendChild(sizeTd);
+
+    const modifiedTd = document.createElement('td');
+    modifiedTd.textContent = item.details.modified;
+    tr.appendChild(modifiedTd);
+
+    const actionsTd = document.createElement('td');
+    if (item.type === 'file') {
+      // Download button
+      const downloadBtn = document.createElement('button');
+      downloadBtn.textContent = 'Download';
+      downloadBtn.onclick = (e) => {
+        e.stopPropagation();
+        const url = `http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`;
+        window.open(url, '_blank');
+      };
+      actionsTd.appendChild(downloadBtn);
+
+      // Stream button
+      if (isStreamable(item.details.extension)) {
+        const streamBtn = document.createElement('button');
+        streamBtn.textContent = 'Stream';
+        streamBtn.onclick = (e) => {
+          e.stopPropagation();
+          const url = 'http://localhost:8888/download/file?path=' + encodeURIComponent(item.path);
+          const ext = item.details.extension.toLowerCase();
+
+          if (mediaExtensions.image.includes(ext)) {
+            const imgWindow = window.open('', '_blank');
+            const img = imgWindow.document.createElement('img');
+            img.src = url;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            imgWindow.document.body.appendChild(img);
+          } else if (mediaExtensions.audio.includes(ext)) {
+            const audioWindow = window.open('', '_blank');
+            const audio = audioWindow.document.createElement('audio');
+            audio.controls = true;
+            audio.autoplay = true;
+            audio.style.width = '100%';
+            const source = audioWindow.document.createElement('source');
+            source.src = url;
+            source.type = item.details.filetype || 'audio/mpeg';
+            audio.appendChild(source);
+            audioWindow.document.body.appendChild(audio);
+          } else if (mediaExtensions.video.includes(ext)) {
+            const videoWindow = window.open('', '_blank');
+            const video = videoWindow.document.createElement('video');
+            video.id = 'player';
+            video.className = 'video-js vjs-big-play-centered';
+            video.controls = true;
+            video.preload = 'auto';
+            video.width = videoWindow.innerWidth;
+            video.height = videoWindow.innerHeight;
+
+            const source = videoWindow.document.createElement('source');
+            source.src = url;
+            source.type = item.details.filetype || 'video/mp4';
+            video.appendChild(source);
+            videoWindow.document.body.appendChild(video);
+
+            const link = videoWindow.document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://vjs.zencdn.net/8.13.0/video-js.css';
+            videoWindow.document.head.appendChild(link);
+
+            const script = videoWindow.document.createElement('script');
+            script.src = 'https://vjs.zencdn.net/8.13.0/video.min.js';
+            script.onload = () => videoWindow.videojs('player');
+            videoWindow.document.body.appendChild(script);
+          }
+        };
+        actionsTd.appendChild(streamBtn);
+      }
+    }
+
+    tr.appendChild(actionsTd);
+    tableBody.appendChild(tr);
+  });
+});
+
+requestPath('/');
+</script>
+
+</body>
+</html>

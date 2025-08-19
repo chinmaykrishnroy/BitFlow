@@ -1,0 +1,10 @@
+body { font-family: Arial, sans-serif; margin: 20px; }
+.toolbar { margin-bottom: 10px; }
+#loading { margin-bottom: 10px; font-weight: bold; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+th { background: #f0f0f0; cursor: pointer; }
+tr:hover { background: #f9f9f9; }
+.folder::before { content: "📁 "; }
+.file::before { content: "📄 "; }
+button { margin-left: 5px; }
