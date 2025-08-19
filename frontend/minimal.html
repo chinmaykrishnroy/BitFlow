@@ -36,7 +36,12 @@
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const socket = io('http://localhost:8888');
+// === Define host/port and build BASE_URL ===
+const HOST = "localhost";
+const PORT = 8888;
+const BASE_URL = `http://${HOST}:${PORT}`;
+
+const socket = io(BASE_URL);
 const tableBody = document.querySelector('#fileTable tbody');
 const loadingDiv = document.getElementById('loading');
 
@@ -113,7 +118,7 @@ socket.on('list_dir_result', (res) => {
       downloadBtn.textContent = 'Download';
       downloadBtn.onclick = (e) => {
         e.stopPropagation();
-        const url = `http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`;
+        const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
         window.open(url, '_blank');
       };
       actionsTd.appendChild(downloadBtn);
@@ -124,7 +129,7 @@ socket.on('list_dir_result', (res) => {
         streamBtn.textContent = 'Stream';
         streamBtn.onclick = (e) => {
           e.stopPropagation();
-          const url = 'http://localhost:8888/download/file?path=' + encodeURIComponent(item.path);
+          const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
           const ext = item.details.extension.toLowerCase();
 
           if (mediaExtensions.image.includes(ext)) {
@@ -141,7 +146,7 @@ socket.on('list_dir_result', (res) => {
             audio.autoplay = true;
             audio.style.width = '100%';
             const source = audioWindow.document.createElement('source');
-            source.src = url;
+            source.src = `${BASE_URL}/stream/file?path=${encodeURIComponent(item.path)}`;
             source.type = item.details.filetype || 'audio/mpeg';
             audio.appendChild(source);
             audioWindow.document.body.appendChild(audio);
@@ -156,8 +161,8 @@ socket.on('list_dir_result', (res) => {
             video.height = videoWindow.innerHeight;
 
             const source = videoWindow.document.createElement('source');
-            source.src = url;
-            source.type = item.details.filetype || 'video/mp4';
+            source.src = `${BASE_URL}/stream/file?path=${encodeURIComponent(item.path)}`;
+            source.type = 'video/mp4';
             video.appendChild(source);
             videoWindow.document.body.appendChild(video);
 

@@ -35,6 +35,22 @@ function formatDate(dtStr) {
          ' ' + dt.toLocaleDateString();
 }
 
+function formatSize(bytes) {
+  if (!bytes || bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
+}
+
+function getFileIcon(ext, type) {
+  if (type === "directory") return "📁";
+  ext = ext?.toLowerCase() || '';
+  if (mediaExtensions.video.includes(ext)) return "🎬";
+  if (mediaExtensions.audio.includes(ext)) return "🎵";
+  if (mediaExtensions.image.includes(ext)) return "🖼️";
+  return "📄";
+}
+
 function updateNavButtons() {
   backBtn.disabled = backStack.length <= 0;
   forwardBtn.disabled = forwardStack.length <= 0;
@@ -100,30 +116,47 @@ socket.on('list_dir_result', (res) => {
     itemDiv.className = item.type === 'directory' ? 'folderItem' : 'fileItem';
     itemDiv.dataset.name = item.details.name;
 
+    // icon
+    const iconDiv = document.createElement('div');
+    iconDiv.className = "fileIcon";
+    iconDiv.textContent = getFileIcon(item.details.extension, item.type);
+    itemDiv.appendChild(iconDiv);
+
+
+    // name
     const nameDiv = document.createElement('div');
     nameDiv.className = 'fileName';
     nameDiv.textContent = item.details.name;
     itemDiv.appendChild(nameDiv);
 
-    if(item.type !== 'directory'){
-      const typeDiv = document.createElement('div');
-      typeDiv.className = 'fileType';
-      typeDiv.textContent = item.details.extension || '';
-      itemDiv.appendChild(typeDiv);
+    // folder count OR file size
+    if(item.type === 'directory'){
+      const countDiv = document.createElement('div');
+      countDiv.className = 'fileType';
+      countDiv.textContent = `${item.details.count} items`;
+      itemDiv.appendChild(countDiv);
+    } else {
+      const sizeDiv = document.createElement('div');
+      sizeDiv.className = 'fileType';
+      sizeDiv.textContent = formatSize(item.details.size);
+      itemDiv.appendChild(sizeDiv);
     }
 
+    // modified
     const modifiedDiv = document.createElement('div');
     modifiedDiv.className = 'fileModified';
     modifiedDiv.textContent = formatDate(item.details.modified);
     itemDiv.appendChild(modifiedDiv);
 
+    // actions (for files)
     if(item.type === 'file'){
       const actionsDiv = document.createElement('div');
       actionsDiv.className = 'fileActions';
 
       // download
       const downloadBtn = document.createElement('button');
-      downloadBtn.textContent = 'Download';
+      downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+      downloadBtn.title = "Download this file";
       downloadBtn.onclick = e => {
         e.stopPropagation();
         window.open(`${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`, '_blank');
@@ -133,7 +166,8 @@ socket.on('list_dir_result', (res) => {
       // stream
       if(isStreamable(item.details.extension)){
         const streamBtn = document.createElement('button');
-        streamBtn.textContent = 'Stream';
+        streamBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        streamBtn.title = "Stream this file";
         streamBtn.onclick = e => {
           e.stopPropagation();
           const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
@@ -153,7 +187,7 @@ socket.on('list_dir_result', (res) => {
             audio.autoplay = true;
             audio.style.width = '100%';
             const source = audioWindow.document.createElement('source');
-            source.src = url;
+            source.src = `${BASE_URL}/stream/file?path=${encodeURIComponent(item.path)}`;
             source.type = item.details.filetype || 'audio/mpeg';
             audio.appendChild(source);
             audioWindow.document.body.appendChild(audio);
@@ -180,11 +214,10 @@ socket.on('list_dir_result', (res) => {
 
             const script = videoWindow.document.createElement('script');
             script.src = 'https://vjs.zencdn.net/8.13.0/video.min.js';
-            // script.onload = () => videoWindow.videojs('player');
             script.onload = () => {
               const player = videoWindow.videojs('player');
               player.ready(() => {
-                player.requestFullscreen(); // default full screen
+                player.requestFullscreen();
               });
             };
             videoWindow.document.body.appendChild(script);
@@ -196,6 +229,7 @@ socket.on('list_dir_result', (res) => {
       itemDiv.appendChild(actionsDiv);
     }
 
+    // click to enter folder
     itemDiv.onclick = () => {
       if(item.type === 'directory') requestPath(item.path);
     };

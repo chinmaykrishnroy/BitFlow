@@ -6,12 +6,18 @@
 <title>File Explorer</title>
 <link rel="stylesheet" href="style.css">
 <link href="https://vjs.zencdn.net/8.13.0/video-js.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<link rel="icon" href="data:image/svg+xml,
+  <svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>
+    <text y=%22.9em%22 font-size=%2290%22>📁</text>
+  </svg>">
 </head>
 <body>
 
 <div class="toolbar">
-  <button id="backBtn" disabled>&larr; Back</button>
-  <button id="forwardBtn" disabled>Forward &rarr;</button>
+  <button id="backBtn" disabled title="Go back"><i class="fa-solid fa-arrow-left"></i></button>
+  <button id="forwardBtn" disabled title="Go forward"><i class="fa-solid fa-arrow-right"></i></button>
   <input type="text" id="searchInput" placeholder="Search files/folders">
   <span id="currentPath">/</span>
 </div>
