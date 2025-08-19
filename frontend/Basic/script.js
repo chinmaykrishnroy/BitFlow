@@ -1,4 +1,10 @@
-const socket = io('http://localhost:8888');
+const HOST = "localhost";
+const PORT = 8888;
+const BASE_URL = `http://${HOST}:${PORT}`;
+
+// Use BASE_URL in socket connection
+const socket = io(BASE_URL);
+
 const fileListDiv = document.getElementById('fileList');
 const loadingDiv = document.getElementById('loading');
 const currentPathSpan = document.getElementById('currentPath');
@@ -120,7 +126,7 @@ socket.on('list_dir_result', (res) => {
       downloadBtn.textContent = 'Download';
       downloadBtn.onclick = e => {
         e.stopPropagation();
-        window.open(`http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`, '_blank');
+        window.open(`${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`, '_blank');
       };
       actionsDiv.appendChild(downloadBtn);
 
@@ -130,7 +136,7 @@ socket.on('list_dir_result', (res) => {
         streamBtn.textContent = 'Stream';
         streamBtn.onclick = e => {
           e.stopPropagation();
-          const url = `http://localhost:8888/download/file?path=${encodeURIComponent(item.path)}`;
+          const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
           const ext = item.details.extension.toLowerCase();
 
           if(mediaExtensions.image.includes(ext)){
