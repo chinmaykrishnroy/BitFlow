@@ -1,4 +1,4 @@
-const HOST = "localhost";
+const HOST = "10.27.220.107";
 const PORT = 8888;
 const BASE_URL = `http://${HOST}:${PORT}`;
 
@@ -168,8 +168,8 @@ socket.on('list_dir_result', (res) => {
             video.height = videoWindow.innerHeight;
 
             const source = videoWindow.document.createElement('source');
-            source.src = url;
-            source.type = item.details.filetype || 'video/mp4';
+            source.src = `${BASE_URL}/stream/file?path=${encodeURIComponent(item.path)}`;
+            source.type = 'video/mp4';
             video.appendChild(source);
             videoWindow.document.body.appendChild(video);
 
@@ -180,7 +180,13 @@ socket.on('list_dir_result', (res) => {
 
             const script = videoWindow.document.createElement('script');
             script.src = 'https://vjs.zencdn.net/8.13.0/video.min.js';
-            script.onload = () => videoWindow.videojs('player');
+            // script.onload = () => videoWindow.videojs('player');
+            script.onload = () => {
+              const player = videoWindow.videojs('player');
+              player.ready(() => {
+                player.requestFullscreen(); // default full screen
+              });
+            };
             videoWindow.document.body.appendChild(script);
           }
         };
