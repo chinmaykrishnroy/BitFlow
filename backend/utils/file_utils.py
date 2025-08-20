@@ -1,4 +1,4 @@
-# backend/sockets/file_utils.py
+# backend/utils/file_utils.py
 import os
 import mimetypes
 import datetime

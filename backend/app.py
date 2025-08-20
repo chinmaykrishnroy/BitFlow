@@ -3,7 +3,8 @@ from flask import Flask
 from flask_socketio import SocketIO
 import config  # Your config module
 from sockets import register_socket_events
-from routes import stream_bp, download_bp  # import both blueprints
+from routes import stream_bp, download_bp
+from utils import get_local_ip
 
 # Flask setup
 app = Flask(__name__)
@@ -23,4 +24,5 @@ app.register_blueprint(stream_bp, url_prefix="/stream")
 app.register_blueprint(download_bp, url_prefix="/download")
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=config.PORT)
+    print(f"Server running at http://{get_local_ip()}:{config.PORT}")
+    socketio.run(app, host=config.HOST, port=config.PORT)

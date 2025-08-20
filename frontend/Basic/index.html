@@ -1,31 +1,92 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>File Explorer</title>
-<link rel="stylesheet" href="style.css">
-<link href="https://vjs.zencdn.net/8.13.0/video-js.css" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>File Explorer</title>
 
-<link rel="icon" href="data:image/svg+xml,
-  <svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>
-    <text y=%22.9em%22 font-size=%2290%22>📁</text>
-  </svg>">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body>
 
-<div class="toolbar">
-  <button id="backBtn" disabled title="Go back"><i class="fa-solid fa-arrow-left"></i></button>
-  <button id="forwardBtn" disabled title="Go forward"><i class="fa-solid fa-arrow-right"></i></button>
-  <input type="text" id="searchInput" placeholder="Search files/folders">
-  <span id="currentPath">/</span>
-</div>
+  <header class="toolbar" role="banner" aria-label="Toolbar">
+    <button id="backBtn" class="toolbarBtn hide-when-sidebar-open" disabled title="Go back" aria-label="Go back">
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+    </button>
 
-<div id="loading"></div>
-<div id="fileList"></div>
+    <button id="forwardBtn" class="toolbarBtn hide-when-sidebar-open" disabled title="Go forward" aria-label="Go forward">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+    </button>
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="script.js"></script>
+    <select id="sortSelect" class="desktop-only styled-select" title="Sort files/folders" aria-label="Sort files">
+      <option value="name_asc">Name ASC</option>
+      <option value="name_desc">Name DESC</option>
+      <option value="modified_desc">Modified DESC</option>
+      <option value="modified_asc">Modified ASC</option>
+      <option value="size_desc">Size DESC</option>
+      <option value="size_asc">Size ASC</option>
+    </select>
+
+    <input id="searchInput" type="search" placeholder="Search files / folders" class="hide-when-sidebar-open" aria-label="Search files" />
+
+    <button id="themeToggle" class="desktop-only" aria-label="Toggle theme" title="Toggle theme">
+      <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+    </button>
+
+    <button id="burgerBtn" class="mobile-only" aria-label="Open menu" title="Menu">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  <div id="loading" aria-live="polite" role="status"></div>
+
+  <main id="fileList" role="list" aria-label="Files and folders"></main>
+
+  <div id="pathWidget" class="pathWidget" role="region" aria-label="Current directory">
+    <div class="pathLeft">
+      <div class="pathHandle" title="Current folder">
+        <i class="fa-solid fa-folder" aria-hidden="true"></i>
+        <span id="pathLabel" aria-live="polite">/</span>
+      </div>
+    </div>
+    <div class="pathRight">
+      <button id="openFolderInfo" class="iconBtn" aria-label="Folder details" title="Folder details"><i class="fa-solid fa-info-circle" aria-hidden="true"></i></button>
+    </div>
+  </div>
+
+  <aside id="mobileSidebar" class="mobileSidebar" role="dialog" aria-label="Options" aria-hidden="true">
+    <div class="mobileSidebarHeader" role="toolbar" aria-label="Sidebar actions">
+      <strong>Actions</strong>
+      <button id="sidebarCloseBtn" class="iconBtn" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    </div>
+
+    <div class="mobileSidebarContent">
+      <div class="mobileRow">
+        <label class="mobileLabel">Theme</label>
+        <button id="themeToggleMobile" class="mobileControl" aria-label="Toggle theme (mobile)">
+          <i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Toggle
+        </button>
+      </div>
+
+      <div class="mobileRow">
+        <label class="mobileLabel">Sort</label>
+        <select id="sortSelectMobile" class="mobileControl styled-select" aria-label="Sort files (mobile)">
+          <option value="name_asc">Name ASC</option>
+          <option value="name_desc">Name DESC</option>
+          <option value="modified_desc">Modified DESC</option>
+          <option value="modified_asc">Modified ASC</option>
+          <option value="size_desc">Size DESC</option>
+          <option value="size_asc">Size ASC</option>
+        </select>
+      </div>
+
+    </div>
+  </aside>
+
+  <div id="sidebarBackdrop" class="sidebarBackdrop" aria-hidden="true"></div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
