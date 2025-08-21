@@ -23,7 +23,7 @@ Perfect for tech-savvy humans who hate clunky file servers. Or anyone who just w
 
 1. Double-click `install.bat`.
 2. Give it permission (Windows will ask if you’re sure… just say "Yes, trust me, I’m no hacker").
-3. Like magic, it creates two shiny shortcuts on your desktop:
+3. Like magic, it creates two shiny shortcuts in the same folder:
 
    * **run\_this\_to\_open\_backend** → Starts the server (the backend wizard).
    * **run\_this\_to\_open\_frontend** → Opens the file explorer frontend.
