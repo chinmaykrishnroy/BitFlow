@@ -1,8 +1,7 @@
 # BitFlow
 
 Stream or download files from any directory you love, in secure, bite-sized chunks.
-Share access without giving away the keys to your entire drive.
-Basically, it’s like file-sharing on steroids, but totally under your control.
+Share access without giving away the keys to your entire drive. 
 
 ---
 
