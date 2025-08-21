@@ -46,7 +46,7 @@ If you’re curious about what’s happening behind the curtain (or you don’t 
     ```python
     MEDIA_ROOT = "/path/to/your/favorite/files"
     ```
-    
+
 * `backend/app.py` – The main Flask app. Sets up Socket.IO, registers routes, and starts the server.
 * `backend/sockets/` – Handles real-time events (files requested? Streamed live).
 * `backend/routes/` – Blueprints for:
