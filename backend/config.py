@@ -3,8 +3,8 @@ import os
 
 # === FILE & MEDIA SETTINGS ===
 # Default media directory is the current user's home directory
-# MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.expanduser("~"))
-MEDIA_ROOT = "D:/Films & TVs"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.expanduser("~"))
+# MEDIA_ROOT = "D:/Films & TVs"
 
 # === SERVER SETTINGS ===
 HOST = "0.0.0.0"
