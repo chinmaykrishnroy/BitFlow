@@ -1,4 +1,4 @@
 @echo off
 echo Starting frontend server...
-node frontend/Basic/server.js
+python frontend/Basic/server.py
 pause
