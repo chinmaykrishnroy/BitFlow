@@ -4,23 +4,24 @@ IFS=$'\n\t'
 
 # ---------------- Configuration ----------------
 APP_NAME="BitFlow"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # should be BitFlow root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # BitFlow root
+SCRIPTS_DIR="$SCRIPT_DIR/Scripts"                           # where generated scripts go
 VENV_DIR="$SCRIPT_DIR/venv"
 BACKEND_REQ="$SCRIPT_DIR/backend/requirements.txt"
 LOG_DIR="$SCRIPT_DIR/logs"
 DESKTOP_DIR="$HOME/Desktop"
 APP_DESKTOP_DIR="$HOME/.local/share/applications"
 
-# Icon files (as you provided). These must exist relative to project root:
-ICON_BACKEND="$SCRIPT_DIR/Scripts/icon_backend"
-ICON_FRONTEND="$SCRIPT_DIR/Scripts/icon_frontend"
+# Icon files inside Scripts (provided)
+ICON_BACKEND="$SCRIPTS_DIR/icon_backend"
+ICON_FRONTEND="$SCRIPTS_DIR/icon_frontend"
 
-# Runner script paths
-RUN_BACKEND="$SCRIPT_DIR/run_backend_server.sh"
-QUICK_BACKEND="$SCRIPT_DIR/quickrun_backend.sh"
-RUN_FRONTEND="$SCRIPT_DIR/run_frontend.sh"
-START_BACKEND="$SCRIPT_DIR/start_backend.sh"
-START_FRONTEND="$SCRIPT_DIR/start_frontend.sh"
+# Runner script filenames (inside $SCRIPTS_DIR)
+RUN_BACKEND="$SCRIPTS_DIR/run_backend_server.sh"
+QUICK_BACKEND="$SCRIPTS_DIR/quickrun_backend.sh"
+RUN_FRONTEND="$SCRIPTS_DIR/run_frontend.sh"
+START_BACKEND="$SCRIPTS_DIR/start_backend.sh"
+START_FRONTEND="$SCRIPTS_DIR/start_frontend.sh"
 
 # Desktop filenames
 DESKTOP_BACKEND_NAME="${APP_NAME}-Backend.desktop"
@@ -49,6 +50,9 @@ write_if_changed(){
 
 # ---------------- Start ----------------
 log "BitFlow installer starting in: $SCRIPT_DIR"
+
+# Ensure Scripts dir exists
+mkdir -p "$SCRIPTS_DIR"
 
 # ---------------- Python / venv ----------------
 PYTHON_BIN=""
@@ -100,7 +104,6 @@ if [ -n "$FRONT_DIR" ]; then
   if exists npm; then
     pushd "$FRONT_DIR" >/dev/null
     npm install || log "npm install failed (continuing)."
-    # build if build script exists
     if npm run | grep -q "build"; then
       npm run build || log "npm build failed (continuing)."
     fi
@@ -122,49 +125,53 @@ fi
 # ---------------- Ensure logs ----------------
 mkdir -p "$LOG_DIR"
 
-# ---------------- Write runner scripts ----------------
+# ---------------- Write runner scripts into $SCRIPTS_DIR ----------------
+# Each script will compute PROJECT_ROOT as parent of its own directory so venv activation and app paths work.
+
 # run_backend_server.sh
 write_if_changed "$RUN_BACKEND" <<'RBE'
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-# Activate venv if present
-if [ -f "venv/bin/activate" ]; then
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # e.g. .../BitFlow/Scripts
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"                # BitFlow root
+cd "$PROJECT_ROOT"
+# Activate venv from project root
+if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
   # shellcheck source=/dev/null
-  source "venv/bin/activate"
+  source "$PROJECT_ROOT/venv/bin/activate"
 fi
-# Preferred backend entrypoints (adjust if you have different file names)
-if [ -f "backend/app.py" ]; then
+# Preferred backend entrypoints
+if [ -f "$PROJECT_ROOT/backend/app.py" ]; then
   echo "[run_backend_server] Running python backend/app.py"
-  exec python backend/app.py
-elif [ -f "backend/server.py" ]; then
+  exec python "$PROJECT_ROOT/backend/app.py"
+elif [ -f "$PROJECT_ROOT/backend/server.py" ]; then
   echo "[run_backend_server] Running python backend/server.py"
-  exec python backend/server.py
+  exec python "$PROJECT_ROOT/backend/server.py"
 else
   echo "[run_backend_server] No backend entrypoint found (backend/app.py or backend/server.py). Exiting."
   exit 2
 fi
 RBE
 
-# quickrun_backend.sh
+# quickrun_backend.sh (nohup background with pid)
 write_if_changed "$QUICK_BACKEND" <<'QBE'
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../BitFlow/Scripts
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 mkdir -p logs
-LOG_FILE="$SCRIPT_DIR/logs/backend.log"
-PID_FILE="$SCRIPT_DIR/logs/backend.pid"
+LOG_FILE="$PROJECT_ROOT/logs/backend.log"
+PID_FILE="$PROJECT_ROOT/logs/backend.pid"
 VENV_ACT=""
-if [ -f "venv/bin/activate" ]; then
-  VENV_ACT="source \"$SCRIPT_DIR/venv/bin/activate\" && "
+if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
+  VENV_ACT="source \"$PROJECT_ROOT/venv/bin/activate\" && "
 fi
-if [ -f "backend/app.py" ]; then
+if [ -f "$PROJECT_ROOT/backend/app.py" ]; then
   RUN_CMD='python backend/app.py'
-elif [ -f "backend/server.py" ]; then
+elif [ -f "$PROJECT_ROOT/backend/server.py" ]; then
   RUN_CMD='python backend/server.py'
 else
   echo "[quickrun_backend] No backend entry found. Exiting."
@@ -192,13 +199,14 @@ write_if_changed "$RUN_FRONTEND" <<'RFE'
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../BitFlow/Scripts
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 # prefer package.json in frontend/ or project root
-if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
-  FRONT_DIR="$SCRIPT_DIR/frontend"
-elif [ -f "package.json" ]; then
-  FRONT_DIR="$SCRIPT_DIR"
+if [ -d "$PROJECT_ROOT/frontend" ] && [ -f "$PROJECT_ROOT/frontend/package.json" ]; then
+  FRONT_DIR="$PROJECT_ROOT/frontend"
+elif [ -f "$PROJECT_ROOT/package.json" ]; then
+  FRONT_DIR="$PROJECT_ROOT"
 else
   FRONT_DIR=""
 fi
@@ -215,13 +223,13 @@ if [ -n "$FRONT_DIR" ] && [ -f "$FRONT_DIR/package.json" ]; then
   fi
 fi
 # fallback to python frontend/Basic/server.py
-if [ -f "frontend/Basic/server.py" ]; then
-  if [ -f "venv/bin/activate" ]; then
+if [ -f "$PROJECT_ROOT/frontend/Basic/server.py" ]; then
+  if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
     # shellcheck source=/dev/null
-    source "venv/bin/activate"
+    source "$PROJECT_ROOT/venv/bin/activate"
   fi
   echo "[run_frontend] Running python frontend/Basic/server.py"
-  exec python frontend/Basic/server.py
+  exec python "$PROJECT_ROOT/frontend/Basic/server.py"
 fi
 echo "[run_frontend] No frontend entrypoint found (package.json or frontend/Basic/server.py). Exiting."
 exit 2
@@ -232,16 +240,17 @@ write_if_changed "$START_BACKEND" <<'SBE'
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-if [ -f "venv/bin/activate" ]; then
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../BitFlow/Scripts
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
   # shellcheck source=/dev/null
-  source "venv/bin/activate"
+  source "$PROJECT_ROOT/venv/bin/activate"
 fi
-if [ -f "backend/app.py" ]; then
-  exec python backend/app.py
-elif [ -x "./run_backend_server.sh" ]; then
-  exec ./run_backend_server.sh
+if [ -f "$PROJECT_ROOT/backend/app.py" ]; then
+  exec python "$PROJECT_ROOT/backend/app.py"
+elif [ -x "$SCRIPT_DIR/run_backend_server.sh" ]; then
+  exec "$SCRIPT_DIR/run_backend_server.sh"
 else
   echo "No backend entrypoint found."
   exit 2
@@ -253,12 +262,13 @@ write_if_changed "$START_FRONTEND" <<'SFE'
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-if [ -f "frontend/Basic/server.py" ]; then
-  exec python frontend/Basic/server.py
-elif [ -x "./run_frontend.sh" ]; then
-  exec ./run_frontend.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../BitFlow/Scripts
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+if [ -f "$PROJECT_ROOT/frontend/Basic/server.py" ]; then
+  exec python "$PROJECT_ROOT/frontend/Basic/server.py"
+elif [ -x "$SCRIPT_DIR/run_frontend.sh" ]; then
+  exec "$SCRIPT_DIR/run_frontend.sh"
 else
   echo "No frontend entrypoint found."
   exit 2
@@ -277,21 +287,19 @@ if [ -z "$TERMCMD" ] && exists konsole; then TERMCMD='konsole -e'; fi
 if [ -z "$TERMCMD" ] && exists xterm; then TERMCMD='xterm -e'; fi
 
 make_desktop(){
-  local runner="$1"
+  local runner="$1"     # absolute path to script in Scripts/
   local label="$2"
   local filename="$3"
   local iconpath="$4"
   local desktopfile="$DESKTOP_DIR/$filename"
   local appfile="$APP_DESKTOP_DIR/$filename"
 
-  # Prefer absolute runner path
-  local abs_runner="$runner"
   # Exec line: use terminal emulator if available so logs are visible
   local exec_line
   if [ -n "$TERMCMD" ]; then
-    exec_line="$TERMCMD \"$abs_runner\""
+    exec_line="$TERMCMD \"$runner\""
   else
-    exec_line="$abs_runner"
+    exec_line="$runner"
   fi
 
   cat > "$desktopfile" <<EOF
@@ -324,20 +332,25 @@ else
   ICON_FRONTEND_ABS=""
 fi
 
-make_desktop "$START_BACKEND" "$APP_NAME Backend" "$DESKTOP_BACKEND_NAME" "$ICON_BACKEND_ABS"
-make_desktop "$START_FRONTEND" "$APP_NAME Frontend" "$DESKTOP_FRONTEND_NAME" "$ICON_FRONTEND_ABS"
+# Use absolute script paths in shortcuts
+ABS_START_BACKEND="$START_BACKEND"
+ABS_START_FRONTEND="$START_FRONTEND"
+
+make_desktop "$ABS_START_BACKEND" "$APP_NAME Backend" "$DESKTOP_BACKEND_NAME" "$ICON_BACKEND_ABS"
+make_desktop "$ABS_START_FRONTEND" "$APP_NAME Frontend" "$DESKTOP_FRONTEND_NAME" "$ICON_FRONTEND_ABS"
 
 # ---------------- Final summary ----------------
 log "Install complete."
 
 cat <<EOF
 
-Created runners (executable) in project root:
-  $(basename "$RUN_BACKEND")
-  $(basename "$QUICK_BACKEND")
-  $(basename "$RUN_FRONTEND")
-  $(basename "$START_BACKEND")
-  $(basename "$START_FRONTEND")
+Wrote runner scripts into:
+  $SCRIPTS_DIR/
+  - $(basename "$RUN_BACKEND")
+  - $(basename "$QUICK_BACKEND")
+  - $(basename "$RUN_FRONTEND")
+  - $(basename "$START_BACKEND")
+  - $(basename "$START_FRONTEND")
 
 Desktop shortcuts created:
   Desktop: $DESKTOP_DIR/$DESKTOP_BACKEND_NAME
@@ -349,16 +362,13 @@ Notes / next steps:
  - Ensure your icons are present at:
      $ICON_BACKEND
      $ICON_FRONTEND
-   If they are named differently, move/rename them to those paths before running this script.
+   If they are named differently, move/rename them into the Scripts directory before running.
  - To run backend in foreground:
      bash "$RUN_BACKEND"
  - To run backend detached (background):
      bash "$QUICK_BACKEND"    # logs -> $LOG_DIR/backend.log, pid -> $LOG_DIR/backend.pid
  - To run frontend:
      bash "$RUN_FRONTEND"
- - The created .desktop files use a terminal emulator (if available) so you can see logs. If your DE doesn't show them, adjust Exec line in the .desktop files.
-
-If you want systemd service creation, custom ports, or to map exact Windows .bat logic to Linux 1:1, paste the .bat contents and I'll update the script accordingly.
 
 EOF
 
