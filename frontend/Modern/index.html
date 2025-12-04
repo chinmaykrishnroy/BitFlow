@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BitFlow - Cloud Manager</title>
+ 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+ 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Oswald:wght@500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+ 
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'mag-bg': 'var(--bg-color)',
+            'mag-panel': 'var(--panel-color)',
+            'mag-red': '#ff0000',
+            'mag-text': 'var(--text-color)',
+          },
+          fontFamily: {
+            'display': ['Oswald', 'sans-serif'],
+            'body': ['Lato', 'sans-serif'],
+            'mono': ['"Fira Code"', 'monospace']
+          },
+          transitionProperty: {
+            'opacity': 'opacity',
+            'transform': 'transform',
+            'all': 'all',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="font-body h-screen flex flex-col overflow-hidden bg-mag-bg text-mag-text transition-colors duration-300 selection:bg-red-500 selection:text-white">
+
+  <header class="flex-none fixed top-0 left-0 right-0 z-50 h-16 bg-mag-bg border-b border-red-900/30 flex items-center justify-between px-4 md:px-6 transition-colors duration-300 backdrop-blur-md">
+    <div class="flex items-center gap-2 select-none cursor-default">
+      <h1 class="font-display text-3xl uppercase tracking-widest font-bold">
+        <span class="text-mag-red">Bit</span><span class="text-mag-text">Flow</span>
+      </h1>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="flex gap-2">
+        <button id="backBtn" class="btn-sharp w-9 h-9 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-opacity" disabled title="Go Back">
+          <i class="fa-solid fa-arrow-left text-sm"></i>
+        </button>
+        <button id="forwardBtn" class="btn-sharp w-9 h-9 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-opacity" disabled title="Go Forward">
+          <i class="fa-solid fa-arrow-right text-sm"></i>
+        </button>
+      </div>
+
+      <div class="hidden md:flex gap-3">
+        <input id="searchInput" type="search" placeholder="SEARCH..." class="px-3 h-9 w-48 lg:w-64 border border-red-900/50 bg-mag-panel text-mag-text uppercase text-xs tracking-wide focus:outline-none focus:border-red-500 transition-all placeholder:text-gray-500">
+        <select id="sortSelect" class="px-3 h-9 cursor-pointer border border-red-900/50 bg-mag-panel text-mag-text font-display uppercase text-xs tracking-wide focus:outline-none focus:border-red-500">
+          <option value="name_asc">Name (A-Z)</option>
+          <option value="name_desc">Name (Z-A)</option>
+          <option value="modified_desc">Newest</option>
+          <option value="modified_asc">Oldest</option>
+          <option value="size_desc">Size (Lg)</option>
+          <option value="size_asc">Size (Sm)</option>
+        </select>
+      </div>
+
+      <button id="themeToggle" class="btn-sharp px-3 h-9 font-display text-xs tracking-widest uppercase hover:bg-mag-red hover:text-white transition-colors flex items-center gap-2">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+        <span class="hidden lg:inline">Theme</span>
+      </button>
+
+      <button id="burgerBtn" class="md:hidden text-2xl text-mag-red ml-2">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+  </header>
+
+  <div id="loading" class="fixed inset-0 bg-mag-bg z-[60] flex flex-col items-center justify-center gap-4 hidden">
+    <div class="w-12 h-12 border-4 border-red-900 border-t-mag-red rounded-full animate-spin"></div>
+    <div class="font-display text-xl uppercase tracking-[0.3em] text-mag-red animate-pulse">Initializing System</div>
+  </div>
+
+  <main id="fileList" class="flex-1 overflow-y-auto bg-mag-bg transition-colors duration-300 custom-scrollbar relative">
+    </main>
+
+  <div id="pathWidget" class="flex-none fixed bottom-0 left-0 right-0 h-8 bg-mag-panel border-t border-red-900/30 flex items-center justify-between px-4 z-40 transition-colors duration-300">
+    <div class="flex items-center gap-2 text-mag-red font-display tracking-widest uppercase text-xs overflow-hidden">
+      <i class="fa-solid fa-folder-open text-[10px]"></i>
+      <span id="pathLabel" class="opacity-90 truncate max-w-[80vw]">/ROOT</span>
+    </div>
+    <button id="openFolderInfo" class="text-mag-text hover:text-mag-red transition-colors text-xs font-display uppercase tracking-wider cursor-pointer">
+      Details
+    </button>
+  </div>
+
+  <aside id="mobileSidebar" class="fixed top-0 right-[-100%] w-72 h-full bg-mag-panel border-l border-red-900 z-[100] transition-all duration-300 p-6 flex flex-col gap-6 shadow-2xl">
+    <div class="flex justify-between items-center border-b border-red-900/30 pb-4">
+      <h2 class="font-display text-xl text-mag-red uppercase tracking-widest">Controls</h2>
+      <button id="sidebarCloseBtn" class="text-xl hover:text-mag-red transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block font-display text-xs text-mag-red mb-2 uppercase tracking-wide">Search</label>
+        <input id="searchInputMobile" type="search" placeholder="Search files..." class="w-full px-3 py-2 border border-red-900/30 bg-mag-bg text-mag-text text-sm focus:outline-none focus:border-mag-red">
+      </div>
+      <div>
+        <label class="block font-display text-xs text-mag-red mb-2 uppercase tracking-wide">Sort Order</label>
+        <select id="sortSelectMobile" class="w-full px-3 py-2 border border-red-900/30 bg-mag-bg text-mag-text text-sm focus:outline-none focus:border-mag-red">
+           <option value="name_asc">Name (A-Z)</option>
+           <option value="modified_desc">Newest First</option>
+        </select>
+      </div>
+      <button id="themeToggleMobile" class="w-full py-3 mt-4 border border-red-900 bg-mag-bg text-mag-text font-display uppercase text-sm tracking-widest hover:bg-mag-red hover:text-white transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(100,0,0,1)]">
+        Switch Theme
+      </button>
+    </div>
+  </aside>
+  <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] hidden transition-opacity opacity-0"></div>
+
+  <div id="galleryApp" class="fixed inset-0 z-[200] bg-black hidden flex-col select-none transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20 pointer-events-auto bg-gradient-to-b from-black/80 to-transparent">
+        <div class="text-white/80 font-display uppercase tracking-widest text-sm truncate max-w-[70%]" id="galleryFileName">Filename.jpg</div>
+        <button id="galleryCloseBtn" class="text-white hover:text-mag-red text-2xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="flex-1 relative flex items-center justify-center overflow-hidden w-full h-full">
+        <button id="galleryPrevBtn" class="absolute left-4 z-20 text-white text-4xl p-4 opacity-20 hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button id="galleryNextBtn" class="absolute right-4 z-20 text-white text-4xl p-4 opacity-20 hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <div id="galleryImageContainer" class="transition-transform duration-300 ease-out will-change-transform">
+            <img id="galleryImage" src="" alt="" class="max-w-none max-h-screen object-contain shadow-2xl">
+        </div>
+    </div>
+    <div class="absolute bottom-6 right-6 z-20 flex gap-3 pointer-events-auto">
+        <button id="galleryLoopBtn" class="w-10 h-10 bg-black/50 border border-white/20 text-white flex items-center justify-center rounded-full hover:bg-mag-red hover:border-mag-red transition-all" title="Toggle Loop">
+            <i class="fa-solid fa-repeat text-sm"></i>
+        </button>
+        <button id="galleryRotateBtn" class="w-10 h-10 bg-black/50 border border-white/20 text-white flex items-center justify-center rounded-full hover:bg-mag-red hover:border-mag-red transition-all" title="Rotate">
+            <i class="fa-solid fa-rotate-right text-sm"></i>
+        </button>
+        <button id="galleryFullscreenBtn" class="w-10 h-10 bg-black/50 border border-white/20 text-white flex items-center justify-center rounded-full hover:bg-mag-red hover:border-mag-red transition-all" title="Fullscreen">
+            <i class="fa-solid fa-expand text-sm"></i>
+        </button>
+    </div>
+  </div>
+
+  <div id="videoPlayerApp" class="fixed inset-0 z-[300] bg-black hidden flex-col select-none transition-opacity duration-300 opacity-0 pointer-events-none group/video">
+    
+    <div class="absolute inset-0 z-0 flex items-center justify-center bg-black">
+      <video id="vpVideo" class="w-full h-full object-contain" playsinline webkit-playsinline></video>
+      <div id="vpBrightnessOverlay" class="absolute inset-0 pointer-events-none bg-black opacity-0 z-10 transition-opacity duration-300"></div>
+    </div>
+
+    <div id="vpInterface" class="absolute inset-0 z-20 flex flex-col justify-between vp-interface-layer transition-opacity duration-500">
+      
+      <div class="vp-control-group p-4 md:p-6 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-auto transition-opacity duration-300">
+        <div class="text-white font-display uppercase tracking-widest text-lg md:text-xl truncate max-w-[60%] shadow-black drop-shadow-md mt-2" id="vpFileName">Video.mp4</div>
+        <div class="flex gap-6 items-center">
+          <div id="vpLockContainer" class="relative">
+             <button id="vpLockBtn" class="text-white hover:text-mag-red transition-colors pointer-events-auto w-10 h-10 flex items-center justify-center" title="Lock Controls">
+                 <i class="fa-solid fa-lock-open text-2xl drop-shadow-md"></i>
+             </button>
+          </div>
+          <button id="vpCloseBtn" class="text-white hover:text-mag-red transition-colors pointer-events-auto w-10 h-10 flex items-center justify-center" title="Close">
+              <i class="fa-solid fa-xmark text-3xl drop-shadow-md"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="vpTouchLeft" class="absolute top-24 bottom-32 left-0 w-1/4 z-10 pointer-events-auto"></div>
+      <div id="vpTouchRight" class="absolute top-24 bottom-32 right-0 w-1/4 z-10 pointer-events-auto"></div>
+
+      <div id="vpCenterControls" class="vp-control-group absolute inset-0 flex items-center justify-center gap-8 md:gap-12 pointer-events-none transition-all duration-300">
+        
+        <button id="vpSeekBackBtn" class="vp-landscape-only pointer-events-auto w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-md border border-white/30 rounded-full flex relative items-center justify-center text-white hover:bg-mag-red hover:border-mag-red transition-all scale-100 active:scale-95 shadow-[0_0_20px_rgba(0,0,0,0.5)] z-30">
+          <i class="fa-solid fa-rotate-left text-5xl md:text-6xl"></i> 
+          <span class="absolute text-sm font-display font-bold pt-1">10</span>
+        </button>
+        
+        <button id="vpPlayPauseBtn" class="pointer-events-auto w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center text-white hover:bg-mag-red hover:border-mag-red transition-all scale-100 active:scale-95 shadow-[0_0_20px_rgba(0,0,0,0.5)] z-30">
+          <i class="fa-solid fa-play text-4xl md:text-5xl ml-2"></i>
+        </button>
+
+        <button id="vpSeekFwdBtn" class="vp-landscape-only pointer-events-auto w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-md border border-white/30 rounded-full flex relative items-center justify-center text-white hover:bg-mag-red hover:border-mag-red transition-all scale-100 active:scale-95 shadow-[0_0_20px_rgba(0,0,0,0.5)] z-30">
+          <i class="fa-solid fa-rotate-right text-5xl md:text-6xl"></i> 
+          <span class="absolute text-sm font-display font-bold pt-1">10</span>
+        </button>
+      </div>
+
+      <div class="vp-control-group absolute left-8 top-1/2 -translate-y-1/2 h-48 w-2 flex flex-col justify-end pointer-events-none z-30 transition-opacity duration-300">
+        <div id="vpBrightnessContainer" class="h-full w-full relative opacity-0 transition-opacity duration-500 bg-black/40 rounded-full overflow-hidden backdrop-blur-sm">
+             <div id="vpBrightnessBar" class="absolute bottom-0 left-0 right-0 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]" style="height: 100%;"></div>
+        </div>
+        <i id="vpBrightnessIcon" class="fa-solid fa-sun text-white text-xl absolute -bottom-8 left-1/2 -translate-x-1/2 drop-shadow-md opacity-0 transition-opacity duration-300"></i>
+      </div>
+
+      <div class="vp-control-group absolute right-8 top-1/2 -translate-y-1/2 h-48 w-2 flex flex-col justify-end pointer-events-none z-30 transition-opacity duration-300">
+        <div id="vpVolumeContainer" class="h-full w-full relative opacity-0 transition-opacity duration-500 bg-black/40 rounded-full overflow-hidden backdrop-blur-sm">
+             <div id="vpVolumeBar" class="absolute bottom-0 left-0 right-0 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]" style="height: 100%;"></div>
+        </div>
+        <i id="vpVolumeIcon" class="fa-solid fa-volume-high text-white text-xl absolute -bottom-8 left-1/2 -translate-x-1/2 drop-shadow-md opacity-0 transition-opacity duration-300"></i>
+      </div>
+
+      <div class="vp-control-group bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-auto transition-opacity duration-300 pb-6 pt-12 px-6 md:px-12 flex flex-col gap-2">
+        
+        <div class="flex items-center gap-4 font-display text-sm text-white tracking-widest shadow-black drop-shadow-md font-bold mb-1">
+          <span id="vpTimeCurrent" class="w-12 text-right">00:00</span>
+          <div class="flex-1 relative h-1.5 hover:h-2.5 bg-white/20 rounded-full cursor-pointer group transition-all duration-200">
+             <div id="vpProgressBar" class="absolute left-0 top-0 bottom-0 bg-mag-red w-0 rounded-full shadow-[0_0_10px_rgba(255,0,0,0.8)]"></div>
+             <input type="range" id="vpSeekInput" min="0" max="100" step="0.1" value="0" class="absolute -top-3 -bottom-3 w-full opacity-0 cursor-pointer z-50">
+             <div id="vpSeekThumb" class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg pointer-events-none transition-transform duration-100 scale-0 group-hover:scale-100" style="left: 0%;"></div>
+          </div>
+          <span id="vpTimeRemaining" class="w-12 text-left">-00:00</span>
+        </div>
+
+        <div class="flex justify-between items-center relative h-14">
+            
+            <div class="flex-1 hidden md:block"></div>
+
+            <div class="flex items-center justify-center gap-6 md:gap-8 flex-[2] relative">
+                
+                <button id="vpSeekBackBtnPortrait" class="vp-portrait-only hidden text-white/80 hover:text-mag-red active:scale-95 transition-all relative">
+                     <i class="fa-solid fa-rotate-left text-3xl"></i>
+                     <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-display font-bold pt-0.5">10</span>
+                </button>
+
+                <button id="vpPrevBtn" class="text-white hover:text-mag-red disabled:opacity-30 transition-colors drop-shadow-md p-2 active:scale-90"><i class="fa-solid fa-backward-step text-2xl md:text-3xl"></i></button>
+                
+                <div class="relative group">
+                    <button id="vpSpeedBtn" class="font-display text-xs font-bold text-white border border-white/30 rounded px-2 py-1 hover:border-mag-red hover:text-mag-red transition-all w-12 bg-black/30 backdrop-blur-sm">1x</button>
+                    <div id="vpSpeedMenu" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-black/90 border border-white/10 rounded flex flex-col gap-1 p-2 hidden min-w-[60px] shadow-xl">
+                    <button class="text-white/70 hover:text-white text-xs py-1.5 border-b border-white/5 last:border-0" data-speed="0.5">0.5x</button>
+                    <button class="text-white/70 hover:text-white text-xs py-1.5 border-b border-white/5 last:border-0" data-speed="0.75">0.75x</button>
+                    <button class="text-white text-xs py-1.5 font-bold border-b border-white/5 last:border-0 text-mag-red" data-speed="1">1x</button>
+                    <button class="text-white/70 hover:text-white text-xs py-1.5 border-b border-white/5 last:border-0" data-speed="1.25">1.25x</button>
+                    <button class="text-white/70 hover:text-white text-xs py-1.5 border-b border-white/5 last:border-0" data-speed="1.5">1.5x</button>
+                    <button class="text-white/70 hover:text-white text-xs py-1.5" data-speed="2">2x</button>
+                    </div>
+                </div>
+
+                <button id="vpNextBtn" class="text-white hover:text-mag-red disabled:opacity-30 transition-colors drop-shadow-md p-2 active:scale-90"><i class="fa-solid fa-forward-step text-2xl md:text-3xl"></i></button>
+
+                <button id="vpSeekFwdBtnPortrait" class="vp-portrait-only hidden text-white/80 hover:text-mag-red active:scale-95 transition-all relative">
+                    <i class="fa-solid fa-rotate-right text-3xl"></i>
+                    <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-display font-bold pt-0.5">10</span>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-end gap-4 flex-1">
+                <button id="vpRotateBtn" class="text-white hover:text-mag-red transition-colors p-2 active:scale-90" title="Rotate Orientation">
+                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                </button>
+                <button id="vpFullscreenBtn" class="text-white hover:text-mag-red transition-colors p-2 active:scale-90" title="Exit Fullscreen">
+                    <i class="fa-solid fa-compress text-xl"></i>
+                </button>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="textEditorApp" class="fixed inset-0 z-[210] hidden flex-col transition-opacity duration-300 opacity-0 pointer-events-none bg-mag-bg">
+    <div class="h-14 bg-mag-panel border-b border-red-900/30 flex items-center justify-between px-4 z-20 pointer-events-auto flex-none">
+        <div class="flex items-center gap-3 overflow-hidden">
+            <i class="fa-solid fa-code text-mag-red"></i>
+            <span id="textEditorFileName" class="font-display uppercase tracking-widest text-sm truncate">Filename.txt</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="textEditorCopyBtn" class="text-mag-text hover:text-mag-red text-sm font-display uppercase tracking-wide px-3 py-1 border border-transparent hover:border-red-500 transition-all">Copy</button>
+            <button id="textEditorCloseBtn" class="text-mag-text hover:text-mag-red text-xl transition-colors px-2"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>
+    <div class="flex-1 overflow-auto p-0 custom-scrollbar pointer-events-auto bg-[#2d2d2d] relative">
+        <pre class="m-0 p-4 min-h-full"><code id="textEditorContent" class="block font-mono text-sm text-gray-300 whitespace-pre outline-none"></code></pre>
+    </div>
+  </div>
+
+  <div id="webModalApp" class="fixed inset-0 z-[220] hidden flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none bg-black/80 backdrop-blur-sm">
+    <div class="bg-mag-panel border border-mag-red p-8 flex flex-col items-center text-center transform scale-95 transition-transform duration-200 pointer-events-auto relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(60,0,0,1)] w-[90%] max-w-md">
+        <button id="webCloseBtn" class="absolute top-2 right-3 text-mag-text hover:text-mag-red text-xl"><i class="fa-solid fa-xmark"></i></button>
+        <div class="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center mb-6 border border-red-500">
+            <i class="fa-solid fa-globe text-3xl text-mag-red"></i>
+        </div>
+        <h3 class="font-display text-xl uppercase tracking-widest text-mag-text mb-2">Open Web File</h3>
+        <p class="font-body text-sm text-mag-text opacity-70 mb-8 max-w-xs leading-relaxed">
+            How would you like to view <span id="webFileName" class="font-bold text-mag-red">file.html</span>?
+        </p>
+        <div class="w-full flex gap-3">
+            <button id="webOpenBtn" class="flex-1 py-3 bg-mag-red text-white font-display uppercase tracking-[0.2em] text-xs hover:brightness-110 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] transition-all">
+                New Tab
+            </button>
+            <button id="webCodeBtn" class="flex-1 py-3 border border-mag-red text-mag-text font-display uppercase tracking-[0.2em] text-xs hover:bg-mag-red hover:text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] transition-all">
+                Code Block
+            </button>
+        </div>
+    </div>
+  </div>
+
+  <div id="folderDetailsApp" class="fixed inset-0 z-[220] hidden flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none bg-black/80 backdrop-blur-sm">
+    <div class="bg-mag-panel border border-mag-red p-8 flex flex-col transform scale-95 transition-transform duration-200 pointer-events-auto relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(60,0,0,1)] w-[90%] max-w-md">
+        <button id="fdCloseBtn" class="absolute top-2 right-3 text-mag-text hover:text-mag-red text-xl"><i class="fa-solid fa-xmark"></i></button>
+        <h3 class="font-display text-xl uppercase tracking-widest text-mag-text mb-6 border-b border-red-900/30 pb-2">Folder Details</h3>
+        <div id="fdContent" class="space-y-3 font-body text-sm text-mag-text mb-8"></div>
+        <button id="fdDownloadBtn" class="w-full py-3 bg-mag-red text-white font-display uppercase tracking-[0.2em] text-sm hover:brightness-110 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] transition-all">
+            Download All Files
+        </button>
+    </div>
+  </div>
+
+  <div id="notSupportedApp" class="fixed inset-0 z-[220] hidden flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none bg-black/80 backdrop-blur-sm">
+    <div class="bg-mag-panel border border-mag-red p-8 flex flex-col items-center text-center transform scale-95 transition-transform duration-200 pointer-events-auto relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(60,0,0,1)] w-[90%] max-w-md">
+        <button id="nsCloseBtn" class="absolute top-2 right-3 text-mag-text hover:text-mag-red text-xl"><i class="fa-solid fa-xmark"></i></button>
+        <div class="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center mb-6 border border-red-500">
+            <i class="fa-solid fa-triangle-exclamation text-3xl text-mag-red"></i>
+        </div>
+        <h3 class="font-display text-xl uppercase tracking-widest text-mag-text mb-2">Format Not Supported</h3>
+        <p class="font-body text-sm text-mag-text opacity-70 mb-8 max-w-xs leading-relaxed">
+            BitFlow cannot preview <span id="nsFileName" class="font-bold text-mag-red">file</span> directly.
+        </p>
+        <button id="nsDownloadBtn" class="w-full py-3 bg-mag-red text-white font-display uppercase tracking-[0.2em] text-sm hover:brightness-110 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] transition-all">
+            Download File
+        </button>
+    </div>
+  </div>
+
+  <div id="audioPlayerApp" class="fixed inset-0 z-[300] bg-black/90 hidden flex-col items-center justify-center select-none transition-opacity duration-300 opacity-0 pointer-events-none backdrop-blur-xl">
+    
+    <div class="absolute top-6 right-6 flex gap-4 pointer-events-auto z-50">
+        <button id="apPipBtn" class="text-white hover:text-mag-red transition-colors" title="Mini Player">
+            <i class="fa-solid fa-compress text-3xl drop-shadow-md"></i>
+        </button>
+        <button id="apCloseBtn" class="text-white hover:text-mag-red transition-colors">
+            <i class="fa-solid fa-xmark text-4xl drop-shadow-md"></i>
+        </button>
+    </div>
+
+    <div class="w-full max-w-md p-8 flex flex-col gap-8 pointer-events-auto relative">
+        
+        <div class="aspect-square bg-mag-panel border border-red-900/30 rounded-2xl flex items-center justify-center shadow-2xl relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-tr from-red-900/20 to-transparent"></div>
+            <i class="fa-solid fa-music text-9xl text-mag-red/50 drop-shadow-lg animate-pulse"></i>
+            <div class="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 opacity-50 px-8 pb-8" id="apVisualizer">
+                </div>
+        </div>
+
+        <div class="text-center">
+            <h2 id="apFileName" class="text-white font-display text-xl tracking-widest truncate">Song Name.mp3</h2>
+            <p class="text-white/50 text-xs font-mono mt-2">AUDIO PLAYBACK</p>
+        </div>
+
+        <div class="w-full space-y-2">
+            <div class="flex justify-between text-xs font-mono text-mag-red/80">
+                <span id="apTimeCurrent">00:00</span>
+                <span id="apTimeRemaining">-00:00</span>
+            </div>
+            <div class="relative h-1.5 bg-white/10 rounded-full cursor-pointer group">
+                <div id="apProgressBar" class="absolute left-0 top-0 bottom-0 bg-mag-red w-0 rounded-full shadow-[0_0_10px_rgba(255,0,0,0.5)] transition-all"></div>
+                <input type="range" id="apSeekInput" min="0" max="100" step="0.1" value="0" class="absolute -top-2 -bottom-2 w-full opacity-0 cursor-pointer z-50">
+                <div id="apSeekThumb" class="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" style="left: 0%"></div>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-6">
+            <div class="flex items-center justify-center gap-6">
+                <button id="apPrevBtn" class="text-white/70 hover:text-white hover:scale-110 transition-all"><i class="fa-solid fa-backward-step text-2xl"></i></button>
+                <button id="apSeekBackBtn" class="text-white/70 hover:text-mag-red hover:scale-110 transition-all relative group">
+                    <i class="fa-solid fa-rotate-left text-2xl"></i>
+                    <span class="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-display">10s</span>
+                </button>
+                
+                <button id="apPlayPauseBtn" class="w-16 h-16 bg-mag-red text-white rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,0,0,0.4)] hover:scale-105 active:scale-95 transition-all border-2 border-white/10">
+                    <i class="fa-solid fa-play text-2xl ml-1"></i>
+                </button>
+
+                <button id="apSeekFwdBtn" class="text-white/70 hover:text-mag-red hover:scale-110 transition-all relative group">
+                    <i class="fa-solid fa-rotate-right text-2xl"></i>
+                    <span class="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-display">10s</span>
+                </button>
+                <button id="apNextBtn" class="text-white/70 hover:text-white hover:scale-110 transition-all"><i class="fa-solid fa-forward-step text-2xl"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                    <button id="apMuteBtn" class="text-white/70 hover:text-white w-6"><i class="fa-solid fa-volume-high"></i></button>
+                    <input type="range" id="apVolumeInput" min="0" max="1" step="0.05" value="1" class="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-mag-red [&::-webkit-slider-thumb]:rounded-full">
+                </div>
+                <div class="bg-white/5 rounded-lg p-3 flex items-center gap-3 relative group">
+                    <span class="text-white/50 text-xs font-display">SPEED</span>
+                    <input type="range" id="apSpeedInput" min="0.5" max="2" step="0.25" value="1" class="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-mag-red [&::-webkit-slider-thumb]:rounded-full">
+                    <span id="apSpeedLabel" class="absolute -top-2 right-2 text-[10px] text-mag-red bg-black px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">1x</span>
+                </div>
+            </div>
+        </div>
+        
+        <audio id="apAudio"></audio>
+    </div>
+  </div>
+
+  <div id="miniPlayer" class="fixed bottom-10 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-mag-panel/90 backdrop-blur-md border border-mag-red rounded-full shadow-2xl z-[400] hidden items-center p-2 pr-6 transition-all duration-300">
+      <div id="miniPlayerExpand" class="w-10 h-10 bg-mag-red rounded-full flex items-center justify-center text-white mr-3 cursor-pointer shrink-0 animate-pulse-slow">
+          <i class="fa-solid fa-music text-sm"></i>
+      </div>
+      <div class="flex-1 overflow-hidden mr-4 cursor-pointer" id="miniPlayerInfo">
+          <div id="miniPlayerTitle" class="text-mag-text font-display text-xs tracking-wider uppercase truncate">Song Name.mp3</div>
+          <div class="w-full bg-black/10 h-1 rounded-full mt-1 overflow-hidden">
+              <div id="miniPlayerProgress" class="h-full bg-mag-red w-0"></div>
+          </div>
+      </div>
+      <div class="flex items-center gap-4 text-mag-text">
+          <button id="miniPlayerPrev" class="hover:text-mag-red transition-colors"><i class="fa-solid fa-backward-step"></i></button>
+          <button id="miniPlayerPlayPause" class="hover:text-mag-red transition-colors"><i class="fa-solid fa-play"></i></button>
+          <button id="miniPlayerNext" class="hover:text-mag-red transition-colors"><i class="fa-solid fa-forward-step"></i></button>
+          <button id="miniPlayerClose" class="ml-2 hover:text-mag-red transition-colors text-xs"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+ 
+  <script src="script.js"></script>
+</body>
+</html>
