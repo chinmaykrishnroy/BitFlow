@@ -280,6 +280,285 @@ function openBlobInNewTab(path, mimeType) {
 }
 
 // ==========================================
+//  APP MODULE: GALLERY (UPDATED)
+// ==========================================
+
+const GalleryApp = {
+    state: { 
+        isOpen: false, 
+        playlist: [], 
+        currentIndex: 0, 
+        rotation: 0, 
+        zoom: 1, 
+        isLoop: false,
+        // New State for Pan/Idle
+        offsetX: 0, 
+        offsetY: 0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        idleTimer: null
+    },
+    dom: {},
+    init() {
+        this.dom = {
+            app: document.getElementById('galleryApp'),
+            imgContainer: document.getElementById('galleryImageContainer'),
+            img: document.getElementById('galleryImage'),
+            filename: document.getElementById('galleryFileName'),
+            prevBtn: document.getElementById('galleryPrevBtn'),
+            nextBtn: document.getElementById('galleryNextBtn'),
+            closeBtn: document.getElementById('galleryCloseBtn'),
+            rotateBtn: document.getElementById('galleryRotateBtn'),
+            loopBtn: document.getElementById('galleryLoopBtn'),
+            fullscreenBtn: document.getElementById('galleryFullscreenBtn'),
+            downloadBtn: document.getElementById('galleryDownloadBtn')
+        };
+        if(!this.dom.app) return;
+
+        // Button Listeners
+        this.dom.closeBtn.onclick = () => this.close();
+        this.dom.prevBtn.onclick = (e) => { e.stopPropagation(); this.prev(); this.resetIdleTimer(); };
+        this.dom.nextBtn.onclick = (e) => { e.stopPropagation(); this.next(); this.resetIdleTimer(); };
+        this.dom.rotateBtn.onclick = (e) => { e.stopPropagation(); this.rotate(); this.resetIdleTimer(); };
+        this.dom.loopBtn.onclick = (e) => { e.stopPropagation(); this.toggleLoop(); this.resetIdleTimer(); };
+        this.dom.fullscreenBtn.onclick = (e) => { e.stopPropagation(); this.toggleFullscreen(); this.resetIdleTimer(); };
+        
+        if(this.dom.downloadBtn) {
+            this.dom.downloadBtn.onclick = (e) => {
+                e.stopPropagation();
+                const item = this.state.playlist[this.state.currentIndex];
+                if(item) triggerFileDownload(item.path, item.details.name);
+                this.resetIdleTimer();
+            };
+        }
+
+        // --- IMPORTANT: PREVENT DEFAULT NATIVE IMAGE DRAG ---
+        // This stops the ghost image and the "no entry" cursor
+        this.dom.img.ondragstart = (e) => { e.preventDefault(); return false; };
+
+        // --- IDLE TIMER EVENTS ---
+        const resetIdle = () => this.resetIdleTimer();
+        this.dom.app.addEventListener('mousemove', resetIdle);
+        this.dom.app.addEventListener('click', resetIdle);
+        this.dom.app.addEventListener('touchstart', resetIdle);
+
+        // --- ZOOM (Wheel) ---
+        this.dom.app.addEventListener('wheel', (e) => {
+            if (!this.state.isOpen) return;
+            e.preventDefault();
+            const delta = Math.sign(e.deltaY) * -0.1;
+            this.state.zoom = Math.max(0.5, Math.min(5, this.state.zoom + delta));
+            
+            if(this.state.zoom <= 1) {
+                this.state.zoom = 1;
+                this.state.offsetX = 0;
+                this.state.offsetY = 0;
+            }
+            this.applyTransform();
+            resetIdle();
+        });
+
+        // --- PANNING (Drag) ---
+        // Mouse Events
+        this.dom.imgContainer.addEventListener('mousedown', (e) => {
+            if(this.state.zoom > 1) {
+                e.preventDefault(); // Stop selection
+                this.startDrag(e.clientX, e.clientY);
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if(this.state.isDragging) {
+                e.preventDefault();
+                this.doDrag(e.clientX, e.clientY);
+            }
+        });
+        window.addEventListener('mouseup', () => this.stopDrag());
+
+        // Touch Events
+        this.dom.imgContainer.addEventListener('touchstart', (e) => {
+            if(this.state.zoom > 1) {
+                const touch = e.touches[0];
+                this.startDrag(touch.clientX, touch.clientY);
+            }
+        }, {passive: false});
+        
+        window.addEventListener('touchmove', (e) => {
+            if(this.state.isDragging) {
+                e.preventDefault(); 
+                const touch = e.touches[0];
+                this.doDrag(touch.clientX, touch.clientY);
+            }
+        }, {passive: false});
+        
+        window.addEventListener('touchend', () => this.stopDrag());
+
+        // Keyboard Nav
+        document.addEventListener('keydown', (e) => {
+            if (!this.state.isOpen) return;
+            resetIdle();
+            if (e.key === 'Escape') document.fullscreenElement ? document.exitFullscreen() : this.close();
+            if (e.key === 'ArrowLeft') this.prev();
+            if (e.key === 'ArrowRight') this.next();
+        });
+    },
+
+    // --- IDLE LOGIC ---
+    resetIdleTimer() {
+        if(!this.state.isOpen) return;
+        this.dom.app.classList.remove('user-idle');
+        
+        if(this.state.idleTimer) clearTimeout(this.state.idleTimer);
+        
+        this.state.idleTimer = setTimeout(() => {
+            // Only hide if we are NOT currently dragging
+            if(this.state.isOpen && !this.state.isDragging) {
+                this.dom.app.classList.add('user-idle');
+            }
+        }, 3000);
+    },
+
+    // --- PANNING LOGIC ---
+    startDrag(clientX, clientY) {
+        this.state.isDragging = true;
+        this.state.dragStartX = clientX;
+        this.state.dragStartY = clientY;
+        this.dom.imgContainer.classList.add('cursor-grabbing');
+        this.dom.imgContainer.classList.remove('cursor-grab');
+    },
+
+    doDrag(clientX, clientY) {
+        if (!this.state.isDragging) return;
+        
+        const deltaX = clientX - this.state.dragStartX;
+        const deltaY = clientY - this.state.dragStartY;
+        
+        this.state.offsetX += deltaX;
+        this.state.offsetY += deltaY;
+        
+        this.state.dragStartX = clientX;
+        this.state.dragStartY = clientY;
+        
+        this.applyTransform();
+        
+        // Reset idle timer while dragging to prevent buttons from fading
+        this.resetIdleTimer(); 
+    },
+
+    stopDrag() {
+        this.state.isDragging = false;
+        this.dom.imgContainer.classList.add('cursor-grab');
+        this.dom.imgContainer.classList.remove('cursor-grabbing');
+    },
+
+    open(initialItem) {
+        const images = appState.currentFiles.filter(f => {
+            if (f.type !== 'file') return false;
+            let ext = (f.details.extension || "").trim().toLowerCase();
+            if (ext.length > 0 && !ext.startsWith('.')) ext = '.' + ext;
+            return CONFIG.mediaExtensions.image.includes(ext);
+        });
+        this.state.playlist = sortFiles(images);
+        this.state.currentIndex = this.state.playlist.findIndex(f => f.path === initialItem.path);
+        if (this.state.currentIndex === -1) {
+            this.state.playlist = [initialItem];
+            this.state.currentIndex = 0;
+        }
+        
+        // Reset View State
+        this.state.rotation = 0;
+        this.state.zoom = 1;
+        this.state.offsetX = 0;
+        this.state.offsetY = 0;
+        
+        this.state.isOpen = true;
+        this.dom.app.classList.remove('hidden');
+        void this.dom.app.offsetWidth;
+        this.dom.app.classList.add('open', 'opacity-100', 'pointer-events-auto');
+        this.dom.app.classList.remove('opacity-0', 'pointer-events-none');
+        this.render();
+        this.resetIdleTimer();
+    },
+    
+    close() {
+        this.state.isOpen = false;
+        if (document.fullscreenElement) document.exitFullscreen();
+        
+        if(this.state.idleTimer) clearTimeout(this.state.idleTimer);
+        this.dom.app.classList.remove('user-idle'); 
+        
+        this.dom.app.classList.add('opacity-0', 'pointer-events-none');
+        this.dom.app.classList.remove('open', 'opacity-100', 'pointer-events-auto');
+        setTimeout(() => this.dom.app.classList.add('hidden'), 300);
+    },
+    
+    render() {
+        const item = this.state.playlist[this.state.currentIndex];
+        if (!item) return;
+        const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
+        this.dom.img.src = url;
+        this.dom.filename.textContent = item.details.name;
+        this.updateButtons();
+        this.applyTransform();
+    },
+    
+    next() {
+        if (this.state.currentIndex < this.state.playlist.length - 1) { this.state.currentIndex++; this.render(); }
+        else if (this.state.isLoop) { this.state.currentIndex = 0; this.render(); }
+    },
+    
+    prev() {
+        if (this.state.currentIndex > 0) { this.state.currentIndex--; this.render(); }
+        else if (this.state.isLoop) { this.state.currentIndex = this.state.playlist.length - 1; this.render(); }
+    },
+    
+    rotate() { 
+        this.state.rotation = (this.state.rotation + 90) % 360; 
+        this.state.offsetX = 0; 
+        this.state.offsetY = 0;
+        this.applyTransform(); 
+    },
+    
+    toggleLoop() { 
+        this.state.isLoop = !this.state.isLoop; 
+        this.dom.loopBtn.classList.toggle('active', this.state.isLoop); 
+        this.updateButtons(); 
+    },
+    
+    toggleFullscreen() {
+        if (!document.fullscreenElement) { 
+            this.dom.app.requestFullscreen().catch(e=>{}); 
+            this.dom.fullscreenBtn.innerHTML = '<i class="fa-solid fa-compress text-sm"></i>'; 
+        } else { 
+            document.exitFullscreen(); 
+            this.dom.fullscreenBtn.innerHTML = '<i class="fa-solid fa-expand text-sm"></i>'; 
+        }
+    },
+    
+    updateButtons() {
+        const isLast = this.state.currentIndex === this.state.playlist.length - 1;
+        const isFirst = this.state.currentIndex === 0;
+        if (!this.state.isLoop) {
+            this.dom.nextBtn.style.opacity = isLast ? '0' : '0.8'; this.dom.nextBtn.style.pointerEvents = isLast ? 'none' : 'auto';
+            this.dom.prevBtn.style.opacity = isFirst ? '0' : '0.8'; this.dom.prevBtn.style.pointerEvents = isFirst ? 'none' : 'auto';
+        } else {
+            this.dom.nextBtn.style.opacity = '0.8'; this.dom.nextBtn.style.pointerEvents = 'auto';
+            this.dom.prevBtn.style.opacity = '0.8'; this.dom.prevBtn.style.pointerEvents = 'auto';
+        }
+        
+        this.state.rotation = 0; 
+        this.state.zoom = 1; 
+        this.state.offsetX = 0;
+        this.state.offsetY = 0;
+        this.applyTransform();
+    },
+    
+    applyTransform() { 
+        this.dom.img.style.transform = `translate(${this.state.offsetX}px, ${this.state.offsetY}px) rotate(${this.state.rotation}deg) scale(${this.state.zoom})`; 
+    }
+};
+
+// ==========================================
 //  APP MODULE: AUDIO PLAYER
 // ==========================================
 
@@ -323,7 +602,10 @@ const AudioPlayerApp = {
             miniNext: document.getElementById('miniPlayerNext'),
             miniClose: document.getElementById('miniPlayerClose'),
             miniExpand: document.getElementById('miniPlayerExpand'),
-            miniInfo: document.getElementById('miniPlayerInfo')
+            miniInfo: document.getElementById('miniPlayerInfo'),
+            
+            // Download Button
+            downloadBtn: document.getElementById('apDownloadBtn')
         };
 
         if(!this.dom.app) return;
@@ -344,6 +626,14 @@ const AudioPlayerApp = {
         this.dom.seekFwdBtn.onclick = () => { this.dom.audio.currentTime += 10; };
         this.dom.prevBtn.onclick = () => this.prev();
         this.dom.nextBtn.onclick = () => this.next();
+        
+        if(this.dom.downloadBtn) {
+            this.dom.downloadBtn.onclick = (e) => {
+                e.stopPropagation();
+                const item = this.state.playlist[this.state.currentIndex];
+                if(item) triggerFileDownload(item.path, item.details.name);
+            };
+        }
         
         this.dom.muteBtn.onclick = () => {
             this.dom.audio.muted = !this.dom.audio.muted;
@@ -655,7 +945,10 @@ const VideoPlayerApp = {
             
             // Speed
             speedBtn: document.getElementById('vpSpeedBtn'),
-            speedMenu: document.getElementById('vpSpeedMenu')
+            speedMenu: document.getElementById('vpSpeedMenu'),
+
+            // Download Button
+            downloadBtn: document.getElementById('vpDownloadBtn')
         };
         
         if(!this.dom.app) return;
@@ -835,6 +1128,15 @@ const VideoPlayerApp = {
         
         // Close
         this.dom.closeBtn.onclick = () => { if(!this.state.isLocked) this.close(); };
+
+        if(this.dom.downloadBtn) {
+            this.dom.downloadBtn.onclick = (e) => {
+                e.stopPropagation();
+                if(this.state.isLocked) return; 
+                const item = this.state.playlist[this.state.currentIndex];
+                if(item) triggerFileDownload(item.path, item.details.name);
+            };
+        }
     },
 
     resetInterfaceTimer() {
@@ -1038,114 +1340,6 @@ const VideoPlayerApp = {
         return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 };
-
-// ==========================================
-//  APP MODULES (Other)
-// ==========================================
-
-const GalleryApp = {
-    state: { isOpen: false, playlist: [], currentIndex: 0, rotation: 0, zoom: 1, isLoop: false },
-    dom: {},
-    init() {
-        this.dom = {
-            app: document.getElementById('galleryApp'),
-            img: document.getElementById('galleryImage'),
-            filename: document.getElementById('galleryFileName'),
-            prevBtn: document.getElementById('galleryPrevBtn'),
-            nextBtn: document.getElementById('galleryNextBtn'),
-            closeBtn: document.getElementById('galleryCloseBtn'),
-            rotateBtn: document.getElementById('galleryRotateBtn'),
-            loopBtn: document.getElementById('galleryLoopBtn'),
-            fullscreenBtn: document.getElementById('galleryFullscreenBtn')
-        };
-        if(!this.dom.app) return;
-        this.dom.closeBtn.onclick = () => this.close();
-        this.dom.prevBtn.onclick = (e) => { e.stopPropagation(); this.prev(); };
-        this.dom.nextBtn.onclick = (e) => { e.stopPropagation(); this.next(); };
-        this.dom.rotateBtn.onclick = (e) => { e.stopPropagation(); this.rotate(); };
-        this.dom.loopBtn.onclick = (e) => { e.stopPropagation(); this.toggleLoop(); };
-        this.dom.fullscreenBtn.onclick = (e) => { e.stopPropagation(); this.toggleFullscreen(); };
-        this.dom.app.addEventListener('wheel', (e) => {
-            if (!this.state.isOpen) return;
-            e.preventDefault();
-            const delta = Math.sign(e.deltaY) * -0.1;
-            this.state.zoom = Math.max(0.5, Math.min(5, this.state.zoom + delta));
-            this.applyTransform();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (!this.state.isOpen) return;
-            if (e.key === 'Escape') document.fullscreenElement ? document.exitFullscreen() : this.close();
-            if (e.key === 'ArrowLeft') this.prev();
-            if (e.key === 'ArrowRight') this.next();
-        });
-    },
-    open(initialItem) {
-        const images = appState.currentFiles.filter(f => {
-            if (f.type !== 'file') return false;
-            let ext = (f.details.extension || "").trim().toLowerCase();
-            if (ext.length > 0 && !ext.startsWith('.')) ext = '.' + ext;
-            return CONFIG.mediaExtensions.image.includes(ext);
-        });
-        this.state.playlist = sortFiles(images);
-        this.state.currentIndex = this.state.playlist.findIndex(f => f.path === initialItem.path);
-        if (this.state.currentIndex === -1) {
-            this.state.playlist = [initialItem];
-            this.state.currentIndex = 0;
-        }
-        this.state.rotation = 0;
-        this.state.zoom = 1;
-        this.state.isOpen = true;
-        this.dom.app.classList.remove('hidden');
-        void this.dom.app.offsetWidth;
-        this.dom.app.classList.add('open', 'opacity-100', 'pointer-events-auto');
-        this.dom.app.classList.remove('opacity-0', 'pointer-events-none');
-        this.render();
-    },
-    close() {
-        this.state.isOpen = false;
-        if (document.fullscreenElement) document.exitFullscreen();
-        this.dom.app.classList.add('opacity-0', 'pointer-events-none');
-        this.dom.app.classList.remove('open', 'opacity-100', 'pointer-events-auto');
-        setTimeout(() => this.dom.app.classList.add('hidden'), 300);
-    },
-    render() {
-        const item = this.state.playlist[this.state.currentIndex];
-        if (!item) return;
-        const url = `${BASE_URL}/download/file?path=${encodeURIComponent(item.path)}`;
-        this.dom.img.src = url;
-        this.dom.filename.textContent = item.details.name;
-        this.updateButtons();
-        this.applyTransform();
-    },
-    next() {
-        if (this.state.currentIndex < this.state.playlist.length - 1) { this.state.currentIndex++; this.render(); }
-        else if (this.state.isLoop) { this.state.currentIndex = 0; this.render(); }
-    },
-    prev() {
-        if (this.state.currentIndex > 0) { this.state.currentIndex--; this.render(); }
-        else if (this.state.isLoop) { this.state.currentIndex = this.state.playlist.length - 1; this.render(); }
-    },
-    rotate() { this.state.rotation = (this.state.rotation + 90) % 360; this.applyTransform(); },
-    toggleLoop() { this.state.isLoop = !this.state.isLoop; this.dom.loopBtn.classList.toggle('active', this.state.isLoop); this.updateButtons(); },
-    toggleFullscreen() {
-        if (!document.fullscreenElement) { this.dom.app.requestFullscreen().catch(e=>{}); this.dom.fullscreenBtn.innerHTML = '<i class="fa-solid fa-compress text-sm"></i>'; }
-        else { document.exitFullscreen(); this.dom.fullscreenBtn.innerHTML = '<i class="fa-solid fa-expand text-sm"></i>'; }
-    },
-    updateButtons() {
-        const isLast = this.state.currentIndex === this.state.playlist.length - 1;
-        const isFirst = this.state.currentIndex === 0;
-        if (!this.state.isLoop) {
-            this.dom.nextBtn.style.opacity = isLast ? '0' : '1'; this.dom.nextBtn.style.pointerEvents = isLast ? 'none' : 'auto';
-            this.dom.prevBtn.style.opacity = isFirst ? '0' : '1'; this.dom.prevBtn.style.pointerEvents = isFirst ? 'none' : 'auto';
-        } else {
-            this.dom.nextBtn.style.opacity = '1'; this.dom.nextBtn.style.pointerEvents = 'auto';
-            this.dom.prevBtn.style.opacity = '1'; this.dom.prevBtn.style.pointerEvents = 'auto';
-        }
-        this.resetTransform();
-    },
-    applyTransform() { this.dom.img.style.transform = `rotate(${this.state.rotation}deg) scale(${this.state.zoom})`; },
-    resetTransform() { this.state.rotation = 0; this.state.zoom = 1; this.applyTransform(); }
-    };
 
 const TextEditorApp = {
     dom: {},
@@ -1382,15 +1576,21 @@ window.handleQuickDownload = function(e, path, type) {
         return false;
     }
     
-    const link = document.createElement('a');
-    link.href = `${BASE_URL}/download/file?path=${encodeURIComponent(path)}`;
-    link.download = path.split('/').pop() || 'download';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerFileDownload(path, path.split('/').pop() || 'download');
     
     return false;
 };
+
+// NEW HELPER: Standardize download triggering
+function triggerFileDownload(path, filename) {
+    const link = document.createElement('a');
+    link.href = `${BASE_URL}/download/file?path=${encodeURIComponent(path)}`;
+    link.download = filename;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 function formatSize(bytes) {
     if (bytes === 0) return "0 B";

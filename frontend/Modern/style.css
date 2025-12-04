@@ -157,6 +157,15 @@
   box-shadow: 0 0 10px rgba(255,0,0,0.5);
 }
 
+/* Gallery Idle State */
+#galleryApp.user-idle .gallery-ui-layer {
+    opacity: 0;
+    pointer-events: none;
+}
+#galleryApp.user-idle {
+    cursor: none;
+}
+
 #textEditorContent {
    tab-size: 4;
    text-shadow: none;
@@ -171,6 +180,7 @@ input[type=range][orient=vertical] {
    margin: 0;
 }
 
+/* Video Player Idle States */
 .locked-mode .vp-control-group, 
 .locked-mode #vpTouchLeft, 
 .locked-mode #vpTouchRight {

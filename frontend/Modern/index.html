@@ -127,22 +127,33 @@
   <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] hidden transition-opacity opacity-0"></div>
 
   <div id="galleryApp" class="fixed inset-0 z-[200] bg-black hidden flex-col select-none transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20 pointer-events-auto bg-gradient-to-b from-black/80 to-transparent">
+    
+    <div class="gallery-ui-layer absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 pointer-events-auto bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-500">
         <div class="text-white/80 font-display uppercase tracking-widest text-sm truncate max-w-[70%]" id="galleryFileName">Filename.jpg</div>
-        <button id="galleryCloseBtn" class="text-white hover:text-mag-red text-2xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        <div class="flex items-center gap-6">
+            <button id="galleryDownloadBtn" class="text-white hover:text-mag-red text-2xl transition-colors" title="Download">
+                <i class="fa-solid fa-download"></i>
+            </button>
+            <button id="galleryCloseBtn" class="text-white hover:text-mag-red text-2xl transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
     </div>
-    <div class="flex-1 relative flex items-center justify-center overflow-hidden w-full h-full">
-        <button id="galleryPrevBtn" class="absolute left-4 z-20 text-white text-4xl p-4 opacity-20 hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+
+    <div class="flex-1 relative flex items-center justify-center overflow-hidden w-full h-full z-10">
+        <button id="galleryPrevBtn" class="gallery-ui-layer absolute left-4 z-30 text-white text-4xl p-4 opacity-80 hover:opacity-100 hover:text-mag-red transition-all duration-200 pointer-events-auto bg-black/20 hover:bg-black/50 rounded-full">
             <i class="fa-solid fa-chevron-left"></i>
         </button>
-        <button id="galleryNextBtn" class="absolute right-4 z-20 text-white text-4xl p-4 opacity-20 hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+        <button id="galleryNextBtn" class="gallery-ui-layer absolute right-4 z-30 text-white text-4xl p-4 opacity-80 hover:opacity-100 hover:text-mag-red transition-all duration-200 pointer-events-auto bg-black/20 hover:bg-black/50 rounded-full">
             <i class="fa-solid fa-chevron-right"></i>
         </button>
-        <div id="galleryImageContainer" class="transition-transform duration-300 ease-out will-change-transform">
+        
+        <div id="galleryImageContainer" class="transition-transform duration-100 ease-linear will-change-transform cursor-grab active:cursor-grabbing">
             <img id="galleryImage" src="" alt="" class="max-w-none max-h-screen object-contain shadow-2xl">
         </div>
     </div>
-    <div class="absolute bottom-6 right-6 z-20 flex gap-3 pointer-events-auto">
+
+    <div class="gallery-ui-layer absolute bottom-6 right-6 z-30 flex gap-3 pointer-events-auto transition-opacity duration-500">
         <button id="galleryLoopBtn" class="w-10 h-10 bg-black/50 border border-white/20 text-white flex items-center justify-center rounded-full hover:bg-mag-red hover:border-mag-red transition-all" title="Toggle Loop">
             <i class="fa-solid fa-repeat text-sm"></i>
         </button>
@@ -167,6 +178,11 @@
       <div class="vp-control-group p-4 md:p-6 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-auto transition-opacity duration-300">
         <div class="text-white font-display uppercase tracking-widest text-lg md:text-xl truncate max-w-[60%] shadow-black drop-shadow-md mt-2" id="vpFileName">Video.mp4</div>
         <div class="flex gap-6 items-center">
+          
+          <button id="vpDownloadBtn" class="text-white hover:text-mag-red transition-colors pointer-events-auto w-10 h-10 flex items-center justify-center" title="Download">
+              <i class="fa-solid fa-download text-2xl drop-shadow-md"></i>
+          </button>
+
           <div id="vpLockContainer" class="relative">
              <button id="vpLockBtn" class="text-white hover:text-mag-red transition-colors pointer-events-auto w-10 h-10 flex items-center justify-center" title="Lock Controls">
                  <i class="fa-solid fa-lock-open text-2xl drop-shadow-md"></i>
@@ -231,8 +247,8 @@
             <div class="flex items-center justify-center gap-6 md:gap-8 flex-[2] relative">
                 
                 <button id="vpSeekBackBtnPortrait" class="vp-portrait-only hidden text-white/80 hover:text-mag-red active:scale-95 transition-all relative">
-                     <i class="fa-solid fa-rotate-left text-3xl"></i>
-                     <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-display font-bold pt-0.5">10</span>
+                      <i class="fa-solid fa-rotate-left text-3xl"></i>
+                      <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-display font-bold pt-0.5">10</span>
                 </button>
 
                 <button id="vpPrevBtn" class="text-white hover:text-mag-red disabled:opacity-30 transition-colors drop-shadow-md p-2 active:scale-90"><i class="fa-solid fa-backward-step text-2xl md:text-3xl"></i></button>
@@ -337,6 +353,10 @@
   <div id="audioPlayerApp" class="fixed inset-0 z-[300] bg-black/90 hidden flex-col items-center justify-center select-none transition-opacity duration-300 opacity-0 pointer-events-none backdrop-blur-xl">
     
     <div class="absolute top-6 right-6 flex gap-4 pointer-events-auto z-50">
+        <button id="apDownloadBtn" class="text-white hover:text-mag-red transition-colors" title="Download">
+            <i class="fa-solid fa-download text-2xl drop-shadow-md"></i>
+        </button>
+
         <button id="apPipBtn" class="text-white hover:text-mag-red transition-colors" title="Mini Player">
             <i class="fa-solid fa-compress text-3xl drop-shadow-md"></i>
         </button>
