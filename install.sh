@@ -222,16 +222,16 @@ if [ -n "$FRONT_DIR" ] && [ -f "$FRONT_DIR/package.json" ]; then
     echo "[run_frontend] npm/yarn not found; cannot run package.json scripts."
   fi
 fi
-# fallback to python frontend/Basic/server.py
-if [ -f "$PROJECT_ROOT/frontend/Basic/server.py" ]; then
+# fallback to python frontend/Modern/server.py
+if [ -f "$PROJECT_ROOT/frontend/Modern/server.py" ]; then
   if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
     # shellcheck source=/dev/null
     source "$PROJECT_ROOT/venv/bin/activate"
   fi
-  echo "[run_frontend] Running python frontend/Basic/server.py"
-  exec python "$PROJECT_ROOT/frontend/Basic/server.py"
+  echo "[run_frontend] Running python frontend/Modern/server.py"
+  exec python "$PROJECT_ROOT/frontend/Modern/server.py"
 fi
-echo "[run_frontend] No frontend entrypoint found (package.json or frontend/Basic/server.py). Exiting."
+echo "[run_frontend] No frontend entrypoint found (package.json or frontend/Modern/server.py). Exiting."
 exit 2
 RFE
 
@@ -265,8 +265,8 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../BitFlow/Scripts
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
-if [ -f "$PROJECT_ROOT/frontend/Basic/server.py" ]; then
-  exec python "$PROJECT_ROOT/frontend/Basic/server.py"
+if [ -f "$PROJECT_ROOT/frontend/Modern/server.py" ]; then
+  exec python "$PROJECT_ROOT/frontend/Modern/server.py"
 elif [ -x "$SCRIPT_DIR/run_frontend.sh" ]; then
   exec "$SCRIPT_DIR/run_frontend.sh"
 else
