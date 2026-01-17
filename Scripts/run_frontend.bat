@@ -1,4 +1,4 @@
 @echo off
 echo Starting frontend server...
-python frontend/optimised/server.py
+python frontend/Modern/server.py
 pause
