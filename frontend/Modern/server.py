@@ -82,7 +82,7 @@ if __name__ == "__main__":
     print("KEEP THIS APP OPEN. DO NOT LOCK SCREEN.")
     
     try:
-        webbrowser.open(url)
+        webbrowser.open(f"http://{ip}:{PORT}")
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nStopping server.")
